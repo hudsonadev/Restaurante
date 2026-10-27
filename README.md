@@ -2,6 +2,10 @@
 
 Aplicação didática em Flask, SQLite e NumPy. Selecione um dos 100 usuários fictícios, explore 60 títulos em 10 gêneros e marque/desmarque conteúdos como vistos. Não há cadastro nem autenticação.
 
+## Documentação
+
+Comece pelo [índice de documentação](docs/README.md). O [guia de implementação](docs/implementacao.md) explica os dados, algoritmos, API e interface. O [guia de manutenção para humanos e IA](docs/manutencao.md) reúne os pontos de alteração, invariantes e verificações.
+
 ## Executar
 
 Crie o ambiente virtual e instale as dependências na primeira execução:
@@ -21,9 +25,12 @@ Acesse http://127.0.0.1:5000. Em um ambiente novo, crie um virtualenv e instale 
 
 ## Dados e persistência
 
-- `dataset_streaming.csv`: IDs originais, nomes fictícios e as horas originais preservadas.
-- `generos.csv` e `conteudos.csv`: catálogo fixo; um gênero principal por título.
-- `historico_inicial.csv`: histórico demonstrativo fixo, com sobreposição entre perfis. Usuários 20, 40, 60, 80 e 100 começam sem histórico.
+- `dados/dataset_streaming.csv`: IDs originais, nomes fictícios e as horas originais preservadas.
+- `dados/generos.csv` e `dados/conteudos.csv`: catálogo fixo; um gênero principal por título.
+- `dados/historico_inicial.csv`: histórico demonstrativo fixo, com sobreposição entre perfis. Usuários 20, 40, 60, 80 e 100 começam sem histórico.
+- `dados/Dataset Streaming(Planilha1).csv`: planilha original de referência, não utilizada na carga da aplicação.
+
+Todos os CSVs ficam em `dados/`. Os caminhos são resolvidos a partir do diretório do código, independentemente da pasta de execução. O banco `streaming.db` continua na raiz, preservando o histórico existente.
 
 A primeira inicialização cria as tabelas e copia os CSVs em uma transação. A tabela `migracoes` impede que reinicializações restaurem conteúdos desmarcados ou apaguem novas marcações. A tabela antiga `engajamento`, se existir, é preservada. O histórico inicial fica em uma tabela separada para a regressão. A aplicação também inicializa corretamente quando importada por um servidor WSGI.
 

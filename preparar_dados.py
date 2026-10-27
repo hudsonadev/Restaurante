@@ -1,9 +1,9 @@
 """Gera uma vez os CSVs demonstrativos. Não modifica o banco nem roda na aplicação."""
 import csv
 import random
-from pathlib import Path
+from banco import DIRETORIO_DADOS
 
-BASE = Path(__file__).resolve().parent
+BASE = DIRETORIO_DADOS
 
 
 def escrever(nome, campos, linhas):

@@ -4,12 +4,13 @@ import sqlite3
 from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent
+DIRETORIO_DADOS = BASE_DIR / 'dados'
 CAMINHO_BANCO = BASE_DIR / 'streaming.db'
-CAMINHO_DATASET = BASE_DIR / 'dataset_streaming.csv'
+CAMINHO_DATASET = DIRETORIO_DADOS / 'dataset_streaming.csv'
 
 
 def ler_csv(nome):
-    with (BASE_DIR / nome).open(encoding='utf-8', newline='') as arquivo:
+    with (DIRETORIO_DADOS / nome).open(encoding='utf-8', newline='') as arquivo:
         return list(csv.DictReader(arquivo))
 
 
