@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Recomendações de streaming por gêneros e hábitos de consumo semelhantes.">
+    <title>StreamData · Descobertas para você</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <script src="{{ url_for('static', filename='script.js') }}" defer></script>
+</head>
+<body>
+    <header class="topbar">
+        <a class="brand" href="#inicio"><span class="brand-icon" aria-hidden="true">▶</span> StreamData<span class="brand-caption">Seu próximo favorito</span></a>
+        <div class="profile"><label for="usuario">Perfil</label><select id="usuario" disabled aria-label="Selecionar usuário"></select></div>
+    </header>
+    <main id="inicio">
+        <section class="intro">
+            <div><span class="eyebrow">ESCOLHA SUA PRÓXIMA HISTÓRIA</span><h1>O que vamos assistir?</h1>
+            <p>Marque o que já viu. Descubra mais do que você gosta.</p></div>
+            <span class="library-count">60 títulos <span aria-hidden="true">·</span> 10 gêneros</span>
+        </section>
+        <nav class="tabs" role="tablist" aria-label="Explorar StreamData">
+            <button type="button" id="tab-para-voce" role="tab" aria-selected="true" aria-controls="view-para-voce" data-view="para-voce">Para você</button>
+            <button type="button" id="tab-catalogo" role="tab" aria-selected="false" aria-controls="view-catalogo" tabindex="-1" data-view="catalogo">Catálogo</button>
+            <button type="button" id="tab-historico" role="tab" aria-selected="false" aria-controls="view-historico" tabindex="-1" data-view="historico">Já assistidos <span id="total-vistos" class="count">0</span></button>
+            <button type="button" id="tab-analises" role="tab" aria-selected="false" aria-controls="view-analises" tabindex="-1" data-view="analises">Análises</button>
+        </nav>
+        <p id="erro" class="error" role="alert"></p>
+        <p id="status" role="status" aria-live="polite">Carregando sua seleção…</p>
+        <div id="view-para-voce" class="view" role="tabpanel" aria-labelledby="tab-para-voce" tabindex="0">
+        <section aria-labelledby="recomendacoes-titulo">
+            <div class="section-heading"><h2 id="recomendacoes-titulo">Sugestões para você</h2><span class="pill">Até 10 descobertas</span></div>
+            <p id="recomendacoes-nota" class="muted"></p>
+            <div id="recomendacoes" class="cards"></div>
+        </section>
+        <details class="panel neighbors"><summary>Pessoas com gostos parecidos</summary><p class="muted">O que essas pessoas assistem também ajuda a escolher suas sugestões.</p><div id="vizinhos"></div></details>
+        </div>
+        <div id="view-catalogo" class="view" role="tabpanel" aria-labelledby="tab-catalogo" tabindex="0" hidden>
+        <section id="catalogo" aria-labelledby="catalogo-titulo">
+            <div class="section-heading"><h2 id="catalogo-titulo">Explore o catálogo</h2><span id="total-resultados" class="muted" role="status"></span></div>
+            <div class="filters">
+                <label class="search-field" for="busca">Buscar título<input id="busca" type="search" placeholder="Qual história você procura?" autocomplete="off"></label>
+                <label for="filtro-genero">Gênero<select id="filtro-genero"><option value="">Todos os gêneros</option></select></label>
+                <label for="filtro-visto">Exibir<select id="filtro-visto"><option value="todos">Todos os títulos</option><option value="nao-vistos">Ainda não vistos</option><option value="vistos">Já assistidos</option></select></label>
+                <button id="limpar-filtros" type="button" class="text-button">Limpar filtros</button>
+            </div>
+            <div id="lista-catalogo" class="cards compact"></div>
+        </section>
+        </div>
+        <div id="view-historico" class="view" role="tabpanel" aria-labelledby="tab-historico" tabindex="0" hidden>
+        <section aria-labelledby="historico-titulo"><div class="section-heading"><h2 id="historico-titulo">Seu histórico</h2></div><p class="muted">Marcou por engano? Use “Desmarcar” para remover do histórico.</p><div id="historico" class="cards compact"></div></section>
+        </div>
+        <div id="view-analises" class="view" role="tabpanel" aria-labelledby="tab-analises" tabindex="0" hidden>
+        <div class="section-heading"><div><h2>Por trás das sugestões</h2><p class="muted">Explore as relações entre gêneros e a análise de engajamento.</p></div></div>
+        <section id="clusters" class="panel" aria-labelledby="clusters-titulo">
+            <span class="eyebrow">CONEXÕES DO CATÁLOGO</span><h2 id="clusters-titulo">Gêneros que andam juntos</h2>
+            <p class="muted">Os três grupos são aprendidos pelo consumo de todos os usuários. As recomendações também atravessam os grupos.</p>
+            <div id="grupos" class="cluster-grid"></div>
+            <label for="genero-proximidade">Explorar proximidade de</label> <select id="genero-proximidade"></select>
+            <p class="muted">Do mais próximo ao mais distante. Distância 0 indica consumo proporcional; 1 indica ausência de similaridade observada.</p>
+            <ol id="proximos" class="distances"></ol>
+        </section>
+        <section id="analise" class="panel" aria-labelledby="analise-titulo">
+            <span class="eyebrow">ANÁLISE DE ENGAJAMENTO</span><h2 id="analise-titulo">Regressão linear múltipla</h2>
+            <p class="muted">Uma análise separada das recomendações. Estima horas assistidas usando horas na plataforma, conteúdos vistos e gêneros distintos. A amostra sintética usa o histórico inicial fixo; suas marcações não alteram o treinamento.</p>
+            <div id="modelo"></div>
+            <form id="previsao-form">
+                <div class="form-grid">
+                    <label>Horas na plataforma / dia<input name="tempo_plataforma" type="number" min="0.1" max="24" step="0.1" value="4" required></label>
+                    <label>Conteúdos vistos<input name="quantidade_vistos" type="number" min="0" max="60" step="1" value="10" required></label>
+                    <label>Gêneros distintos<input name="quantidade_generos" type="number" min="0" max="10" step="1" value="3" required></label>
+                </div>
+                <button type="submit" class="primary">Estimar horas assistidas</button>
+            </form>
+            <div id="resultado" class="prediction" aria-live="polite"></div>
+        </section>
+        </div>
+        <footer><span>StreamData</span> Catálogo demonstrativo · Dados fictícios</footer>
+    </main>
+</body>
+</html>
