@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Admin{% endblock %} · StreamData</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <script src="{{ url_for('static', filename='common.js') }}" defer></script>
+    {% block scripts %}{% endblock %}
+</head>
+<body>
+    <a class="skip-link" href="#inicio">Ir para o conteúdo</a>
+    <header class="topbar"><a class="brand" href="/"> <span class="brand-icon" aria-hidden="true">▶</span> StreamData <span class="brand-caption">Admin · Inteligência de consumo</span></a><span class="pill">Base demonstrativa</span></header>
+    <nav class="admin-nav" aria-label="Navegação administrativa">
+        {% for rota, nome in [('/', 'Visão geral'), ('/categorias', 'Categorias mais assistidas'), ('/catalogo', 'Catálogo'), ('/analises', 'Análises')] %}
+        <a href="{{ rota }}" {% if request.path == rota %}aria-current="page"{% endif %}>{{ nome }}</a>
+        {% endfor %}
+    </nav>
+    <main id="inicio">{% block content %}{% endblock %}<footer><span>StreamData · Admin</span>Dados demonstrativos · Associação não implica causalidade</footer></main>
+</body>
+</html>

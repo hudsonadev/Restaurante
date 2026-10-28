@@ -8,6 +8,10 @@ Verifique `git status --short` para distinguir alterações existentes das suas.
 
 ## Onde mexer
 
+O frontend agora é organizado pelo painel Admin (`/`) e por perfis (`/usuarios/<id>`). `templates/base.html` fornece a navegação compartilhada. Scripts comuns ficam em `static/common.js`; `script.js` atende somente perfis, `analises.js` atende simulador e clusters, `graficos.js` gera SVGs e `tabelas.js` filtra dados. Ao criar uma página, carregue apenas seus scripts específicos.
+
+`regressao.obter_analises()` alimenta as páginas e `/api/analises`. Mantenha previsões brutas nos gráficos e resíduos; a limitação física pertence somente à exibição do simulador. Não confunda histórico inicial com marcações atuais. Os testes em `tests/test_admin.py` cobrem regressão simples, métricas, indisponibilidade independente, páginas e agregados após edições.
+
 | Necessidade | Local principal | Pontos relacionados |
 | --- | --- | --- |
 | Alterar leitura dos CSVs | `banco.py`, constante `DIRETORIO_DADOS` | `preparar_dados.py` usa a mesma constante |
@@ -76,12 +80,13 @@ Os testes redirecionam `banco.CAMINHO_BANCO` para bancos temporários antes da c
 
 ### Conferência manual da interface
 
-1. Trocar entre um perfil com histórico e um sem histórico.
+1. No Admin, buscar e abrir um perfil com histórico e outro sem histórico; conferir horas, estimativas e contagens iniciais/atuais.
 2. Marcar uma sugestão; confirmar que ela sai das recomendações e aparece no histórico.
 3. Desmarcar e recarregar a página; conferir a persistência da remoção.
 4. Combinar busca por título, gênero e status; limpar os filtros.
-5. Abrir explicações, pessoas semelhantes, clusters e a regressão.
+5. Abrir explicações e pessoas semelhantes no perfil; voltar ao Admin e conferir os novos totais. Em Análises, conferir reta, comparações nas mesmas escalas, simulador e clusters.
 6. Navegar nas abas por teclado e conferir tela estreita.
+7. Consultar os pontos com mouse e teclado, abrir seus perfis e conferir os mesmos valores na tabela. Filtrar o catálogo global e validar estados sem resultados.
 
 Testes automatizados de backend não substituem inspeção visual. Ao relatar validação, diferencie testes executados, revisão estática e fluxos efetivamente verificados no navegador.
 

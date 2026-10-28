@@ -1,17 +1,84 @@
 import math
-from flask import Flask, jsonify, render_template, request
+from flask import Flask, jsonify, render_template, request, redirect, url_for, abort
 from banco import conectar, inicializar_banco
 from recomendacao import obter_clusters, recomendar
-from regressao import obter_resumo_modelo, prever_engajamento, VARIAVEIS
+from regressao import obter_resumo_modelo, obter_analises, prever_engajamento, VARIAVEIS
+
+
+def consultar_catalogo(db, usuario_id=None):
+    linhas = db.execute('''SELECT c.*, g.nome AS genero,
+        (SELECT COUNT(*) FROM visualizacoes v WHERE v.conteudo_id=c.id) AS quantidade_usuarios,
+        EXISTS(SELECT 1 FROM visualizacoes v WHERE v.usuario_id=? AND v.conteudo_id=c.id) AS visto
+        FROM conteudos c JOIN generos g ON g.id=c.genero_id ORDER BY c.id''', (usuario_id,))
+    return [{**dict(r), 'visto': bool(r['visto'])} for r in linhas]
 
 
 def criar_app():
     inicializar_banco()
     app = Flask(__name__)
 
+    @app.template_filter('numero')
+    def numero(valor):
+        return 'Indefinido' if valor is None else f'{valor:.3f}'.replace('.', ',')
+
     @app.get('/')
     def pagina_inicial():
-        return render_template('index.html')
+        with conectar() as db:
+            indicadores = {t: db.execute(f'SELECT COUNT(*) FROM {t}').fetchone()[0]
+                           for t in ('usuarios', 'conteudos', 'generos', 'visualizacoes')}
+            medias = db.execute('SELECT AVG(tempo_plataforma_horas), AVG(tempo_assistindo_horas) FROM usuarios').fetchone()
+        return render_template('index.html', indicadores=indicadores, medias=medias, analises=obter_analises())
+
+    @app.get('/catalogo')
+    def catalogo_global():
+        with conectar() as db:
+            itens = consultar_catalogo(db)
+        return render_template('catalogo.html', itens=itens)
+
+    @app.get('/analises')
+    def pagina_analises():
+        with conectar() as db:
+            limites = (db.execute('SELECT COUNT(*) FROM conteudos').fetchone()[0],
+                       db.execute('SELECT COUNT(*) FROM generos').fetchone()[0])
+        return render_template('analises.html', analises=obter_analises(), limites=limites)
+
+    @app.get('/regressao')
+    def pagina_regressao():
+        return redirect(url_for('pagina_analises', _anchor='regressao'))
+
+    @app.get('/api/analises')
+    def analises_api():
+        return jsonify(obter_analises())
+
+    @app.get('/usuarios/<int:usuario_id>')
+    def perfil(usuario_id):
+        analises = obter_analises()
+        usuario = next((p for p in analises['observacoes'] if p['id'] == usuario_id), None)
+        if usuario is None:
+            abort(404)
+        return render_template('perfil.html', usuario=usuario, analises=analises)
+
+    @app.errorhandler(404)
+    def nao_encontrado(erro):
+        return render_template('404.html'), 404
+
+    @app.get('/categorias')
+    def categorias_mais_assistidas():
+        with conectar() as db:
+            categorias = [dict(r) for r in db.execute('''
+                SELECT g.id, g.nome, COUNT(v.usuario_id) AS quantidade
+                FROM generos g
+                LEFT JOIN conteudos c ON c.genero_id = g.id
+                LEFT JOIN visualizacoes v ON v.conteudo_id = c.id
+                GROUP BY g.id, g.nome
+                ORDER BY quantidade DESC, g.nome, g.id
+            ''')]
+        total = sum(c['quantidade'] for c in categorias)
+        maior = max((c['quantidade'] for c in categorias), default=0)
+        for categoria in categorias:
+            categoria['percentual'] = 100 * categoria['quantidade'] / total if total else 0
+            categoria['largura'] = 100 * categoria['quantidade'] / maior if maior else 0
+        return render_template('categorias.html', categorias=categorias, total=total)
 
     @app.get('/api/usuarios')
     def usuarios():
@@ -26,10 +93,8 @@ def criar_app():
         with conectar() as db:
             if not db.execute('SELECT 1 FROM usuarios WHERE id=?', (usuario_id,)).fetchone():
                 return jsonify(erro='Usuário não encontrado.'), 404
-            linhas = db.execute('''SELECT c.*, g.nome AS genero,
-                EXISTS(SELECT 1 FROM visualizacoes v WHERE v.usuario_id=? AND v.conteudo_id=c.id) AS visto
-                FROM conteudos c JOIN generos g ON g.id=c.genero_id ORDER BY c.id''', (usuario_id,))
-            return jsonify([{**dict(r), 'visto': bool(r['visto'])} for r in linhas])
+            return jsonify([{k: v for k, v in c.items() if k != 'quantidade_usuarios'}
+                            for c in consultar_catalogo(db, usuario_id)])
 
     @app.get('/api/usuarios/<int:usuario_id>/recomendacoes')
     def recomendacoes(usuario_id):

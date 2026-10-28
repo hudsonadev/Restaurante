@@ -2,9 +2,9 @@
 
 ## 1. Objetivo e arquitetura
 
-O projeto começou como uma demonstração de regressão linear simples sobre horas na plataforma e horas assistidas. A versão atual tem duas funcionalidades independentes: recomendar títulos ainda não vistos e demonstrar regressão linear múltipla para estimar engajamento.
+O projeto começou como uma demonstração de regressão linear simples sobre horas na plataforma e horas assistidas. A versão atual reúne um painel Admin de análise global, regressões simples e múltipla para estimar engajamento e perfis individuais com recomendações de títulos ainda não vistos.
 
-Os usuários, títulos e gêneros são fixos. Selecionar um nome na interface troca o perfil consultado; não é login. A única alteração de dados disponível pela interface é marcar ou desmarcar um conteúdo como visto.
+Os usuários, títulos e gêneros são fixos. Abrir um nome na tabela leva ao perfil individual; não é login. A única alteração de dados disponível pela interface é marcar ou desmarcar um conteúdo como visto.
 
 O backend usa Flask para HTTP, SQLite para persistência e NumPy para operações numéricas. O frontend é HTML, CSS e JavaScript sem framework e sem processo de build. Não há serviço externo de IA nem modelo de linguagem no recomendador.
 
@@ -126,7 +126,25 @@ Títulos vistos são sempre excluídos. O ranking ordena por pontuação decresc
 
 Cada item informa afinidade, componente colaborativo, popularidade, pontuação final e motivos. Os motivos citam o gênero com maior contribuição ou os vizinhos que realmente viram o título; usuários sem histórico recebem explicação por popularidade.
 
-## 5. Regressão linear múltipla
+## 5. Regressões e comparação dos modelos
+
+### Regressão simples e visão conjunta
+
+`ajustar_simples(x, y)` ajusta `Y = B0 + B1·X + E`, em que Y são as horas assistidas (variável dependente), X são as horas na plataforma (variável independente), B0 é o intercepto, B1 é o coeficiente angular e E é o erro. O cálculo é manual, por mínimos quadrados:
+
+```text
+B1 = Σ(xi − x̄)(yi − ȳ) / Σ(xi − x̄)²
+B0 = ȳ − B1·x̄
+Ei = yi − (B0 + B1·xi)
+```
+
+Os erros Ei alimentam o R². A função exige pelo menos duas observações finitas e variação em X, pois sem ela o denominador de B1 é zero. Com Y constante, R² é indefinido. A indisponibilidade de um modelo não impede a apresentação do outro.
+
+`obter_analises()` consulta todos os usuários, incluindo quem não possui histórico, e devolve os resumos `simples` e `multipla` e a lista `observacoes`. Cada observação contém ID, nome, horas, contagens iniciais, previsões brutas e resíduos. Resíduo é observado menos previsto; erro absoluto médio é a média dos módulos desses resíduos. As métricas são calculadas na mesma amostra de treinamento, sem alegação de desempenho fora dela. Valores e previsões indisponíveis são `null` na API.
+
+O primeiro commit disponível (`ccfe2f1`) já continha regressão múltipla. A regressão simples foi reconstruída a partir das horas originais preservadas, em conformidade com a proposta descrita na documentação; não foi recuperada de código anterior inexistente no histórico Git.
+
+### Regressão múltipla
 
 [regressao.py](../regressao.py) implementa uma análise separada. Ela não calcula a ordem das recomendações.
 
@@ -149,6 +167,12 @@ A previsão informa o valor bruto e um valor para exibição limitado entre zero
 | Rota | Entrada | Saída principal |
 | --- | --- | --- |
 | `GET /` | Nenhuma | HTML da interface |
+| `GET /categorias` | Nenhuma | Gráfico de categorias mais assistidas por todos os usuários |
+| `GET /catalogo` | Nenhuma | Catálogo global com audiência atual por título |
+| `GET /analises` | Nenhuma | Gráficos, comparação, simulador e clusters |
+| `GET /regressao` | Nenhuma | Redireciona para `/analises#regressao` |
+| `GET /usuarios/<id>` | ID do usuário | Perfil individual; página 404 se inexistente |
+| `GET /api/analises` | Nenhuma | `simples`, `multipla` e `observacoes`, com previsões, resíduos e erro absoluto médio |
 | `GET /api/usuarios` | Nenhuma | Lista com `id` e `nome` |
 | `GET /api/conteudos` | Query `usuario_id` inteira | Catálogo com gênero e `visto` booleano |
 | `GET /api/usuarios/<id>/recomendacoes` | ID do usuário | `usuario`, `sem_historico`, `recomendacoes`, `usuarios_semelhantes` |
@@ -163,23 +187,27 @@ Exemplo de entrada para previsão:
 {"tempo_plataforma": 4, "quantidade_vistos": 10, "quantidade_generos": 3}
 ```
 
-Entradas inválidas retornam 400, IDs não encontrados nas rotas de consulta/marcação retornam 404 e modelo indisponível ao prever retorna 422. Os erros tratados usam `{"erro": "mensagem"}`. Rotas inexistentes seguem o tratamento padrão do Flask.
+Entradas inválidas retornam 400, IDs não encontrados nas rotas de consulta/marcação retornam 404 e modelo indisponível ao prever retorna 422. Os erros tratados das APIs usam `{"erro": "mensagem"}`. Páginas ou rotas inexistentes recebem uma página HTML 404 com link para o Admin.
 
 Horas precisam ser finitas, maiores que zero e no máximo 24. Contagens precisam ser inteiras e não negativas, limitadas ao catálogo; gêneros não podem superar a quantidade de vistos. Com vistos positivos, a quantidade de gêneros também deve ser positiva. A API aceita números ou strings numéricas para a previsão, mas rejeita booleanos; `visto` exige booleano JSON real.
 
-## 7. Frontend
+## 7. Frontend e painel Admin
 
-`templates/index.html` fornece a estrutura. `static/style.css` define o tema claro, cards, filtros e layouts responsivos. `static/script.js` faz as consultas com `fetch`, escapa os textos antes de montar HTML e mantém o estado de navegação no navegador.
+A página inicial é o painel **Admin**, sem autenticação. A navegação compartilhada oferece Visão geral, Categorias mais assistidas, Catálogo e Análises. Os perfis são páginas individuais em `/usuarios/<id>`; IDs inexistentes recebem uma página 404 com acesso ao painel.
 
-As abas são **Para você**, **Catálogo**, **Já assistidos** e **Análises**. Elas usam `hidden`, papéis ARIA, seleção explícita e navegação por setas, Home e End. O catálogo tem busca por título sem diferença de maiúsculas ou acentos, filtro de gênero e filtro de vistos. A filtragem é local sobre os 60 títulos já recebidos.
+A visão geral calcula totais de usuários, conteúdos, gêneros e marcações atuais, além das médias de horas no banco. Exibe a regressão simples e uma tabela pesquisável por nome ou ID com acesso aos perfis. O catálogo global mostra o número atual de usuários que assistiram a cada título, com busca e filtro por gênero. Sua consulta é compartilhada com a API de catálogo individual, cujo contrato continua exigindo `usuario_id`.
 
-Os cards deixam os motivos em uma seção expansível. Perfis semelhantes também ficam recolhidos inicialmente. Clusters e regressão permanecem disponíveis na aba Análises.
+A página Análises reúne a regressão simples, comparações observado × previsto dos dois modelos em escalas iguais, simulador múltiplo e agrupamentos de gêneros. Os gráficos são SVG, gerados localmente sem bibliotecas externas. Pontos têm links, nomes e valores consultáveis por mouse ou teclado. Uma tabela apresenta os mesmos dados, previsões brutas e resíduos. Em telas pequenas, tabelas e gráficos podem rolar horizontalmente para manter os textos legíveis.
 
-Ao trocar usuário, catálogo, recomendações e clusters são consultados. Um contador de requisições descarta respostas antigas quando há trocas rápidas. Durante o carregamento, as ações de marcação ficam bloqueadas.
+Cada perfil mostra horas observadas, previsões e resíduos de ambos os modelos, contagens iniciais usadas no treinamento e contagens atuais editáveis. As abas Para você, Catálogo e Já assistidos mantêm recomendações, explicações, vizinhos e ações de marcar/desmarcar. O ID da URL identifica o perfil, sem seleção global implícita. As abas mantêm seleção ARIA e navegação por setas, Home e End.
 
-Ao marcar/desmarcar, o frontend envia o `PUT`, espera a confirmação e recarrega os dados. Assim, não anuncia uma marcação antes de o banco confirmá-la. O foco de teclado é restaurado para um controle disponível e mensagens de status usam regiões acessíveis. O backend continua sendo a fonte de verdade do histórico.
+`templates/base.html` centraliza a navegação e o tema. `static/common.js` fornece formatação, escape e consultas HTTP; `script.js` controla apenas o perfil; `analises.js` controla o simulador e clusters; `graficos.js` desenha os SVGs; `tabelas.js` filtra as tabelas. Os scripts são carregados somente nas páginas que usam seus elementos.
+
+Ao marcar/desmarcar, o frontend espera a confirmação do PUT e recarrega o catálogo e as recomendações do perfil. Recalcula os indicadores atuais e restaura o foco. As contagens iniciais e as previsões permanecem inalteradas. Os agregados globais refletem as mudanças no próximo acesso à página. Estados de carregamento e erros usam mensagens acessíveis; respostas antigas são descartadas pelo contador de requisições.
 
 ## 8. Limites da demonstração
+
+A página `/categorias`, acessível pelo link na página inicial, apresenta barras horizontais por gênero em ordem decrescente de marcações. A consulta agrega o histórico atual de `visualizacoes`, incluindo gêneros com contagem zero. Cada par usuário/conteúdo conta uma vez; o percentual usa o total de marcações e a largura das barras usa a maior contagem. O HTML é renderizado no servidor sem biblioteca externa, atualizado a cada acesso. Sem marcações, apresenta uma mensagem de estado vazio.
 
 Não há autenticação, cadastro, notas, reprodução de vídeo ou avaliação de satisfação. A marcação é um sinal implícito de consumo. Títulos têm somente um gênero principal. Similaridades e clusters refletem os padrões sintéticos desta base.
 

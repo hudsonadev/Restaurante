@@ -1,0 +1,14 @@
+{% extends "base.html" %}{% block title %}Análises{% endblock %}
+{% block scripts %}<script src="{{ url_for('static', filename='graficos.js') }}" defer></script><script src="{{ url_for('static', filename='tabelas.js') }}" defer></script><script src="{{ url_for('static', filename='analises.js') }}" defer></script>{% endblock %}
+{% block content %}
+<section class="intro"><div><span class="eyebrow">ADMIN / ANÁLISES</span><h1>Dos dados aos modelos</h1><p>Compare o ajuste das regressões simples e múltipla sobre os mesmos usuários.</p></div></section>
+{% include "grafico_simples.html" %}
+<section aria-labelledby="comparacao-titulo"><h2 id="comparacao-titulo">Observado × previsto</h2><p class="muted">Mesmas escalas nos dois gráficos. Quanto mais próximo da linha de referência, menor o erro. Métricas calculadas na amostra de treinamento; não são validação externa.</p>
+<div class="comparison-grid">{% for chave, nome in [('simples','Regressão simples'),('multipla','Regressão múltipla')] %}{% set modelo = analises[chave] %}<article class="panel"><h3>{{ nome }}</h3>
+{% if modelo.disponivel %}<div class="metrics"><span>R² <strong>{{ modelo.r_quadrado|numero }}</strong></span><span>Erro absoluto médio <strong>{{ modelo.erro_absoluto_medio|numero }} h</strong></span><span>Amostra <strong>{{ modelo.quantidade_registros }}</strong></span></div><div class="chart-container" data-chart="comparacao-{{ chave }}"></div><p class="chart-legend"><span class="legend-dot"></span> Usuários <span class="legend-line"></span> Referência y = x</p>{% else %}<p class="empty">{{ modelo.aviso }}</p>{% endif %}</article>{% endfor %}</div></section>
+<section class="panel" aria-labelledby="simulador-titulo"><span class="eyebrow">EXPERIMENTE AS VARIÁVEIS</span><h2 id="simulador-titulo">Simulador da regressão múltipla</h2><p class="muted">Usa horas na plataforma, conteúdos vistos e gêneros distintos do histórico inicial. Alterar marcações não retreina o modelo.</p><div id="modelo" role="status">Carregando modelo…</div>
+<form id="previsao-form"><div class="form-grid"><label>Horas na plataforma / dia<input name="tempo_plataforma" type="number" min="0.1" max="24" step="0.1" value="4" required></label><label>Conteúdos vistos<input name="quantidade_vistos" type="number" min="0" max="{{ limites[0] }}" step="1" value="{{ [10, limites[0]]|min }}" required></label><label>Gêneros distintos<input name="quantidade_generos" type="number" min="0" max="{{ limites[1] }}" step="1" value="{{ [3, limites[1], limites[0]]|min }}" required></label></div><button class="primary" type="submit" disabled>Estimar horas assistidas</button></form><div id="resultado" class="prediction" aria-live="polite"></div></section>
+{% include "observacoes.html" %}
+{% include "clusters.html" %}
+<script id="dados-analises" type="application/json">{{ analises|tojson }}</script>
+{% endblock %}

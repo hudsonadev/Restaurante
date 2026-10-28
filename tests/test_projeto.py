@@ -41,6 +41,30 @@ class ProjetoTest(unittest.TestCase):
             self.assertEqual(len(g['proximos']), 9)
             self.assertEqual(g['proximos'], sorted(g['proximos'], key=lambda x:(x['distancia'], x['id'])))
 
+    def test_ranking_categorias_e_estado_vazio(self):
+        with banco.conectar() as db:
+            db.execute('DELETE FROM visualizacoes')
+        resposta = self.client.get('/categorias')
+        self.assertEqual(resposta.status_code, 200)
+        self.assertIn('Ainda não há conteúdos', resposta.get_data(as_text=True))
+        with banco.conectar() as db:
+            ids = [r[0] for r in db.execute('SELECT id FROM conteudos ORDER BY genero_id,id')]
+            db.executemany('INSERT INTO visualizacoes VALUES (?,?)', [(1,ids[0]), (2,ids[0]), (1,ids[-1])])
+        from flask import template_rendered
+        contextos = []
+        def capturar(sender, template, context, **extra):
+            contextos.append(context)
+        with template_rendered.connected_to(capturar, self.app):
+            resposta = self.client.get('/categorias')
+        self.assertEqual(resposta.status_code, 200)
+        contexto = contextos[0]
+        self.assertEqual(contexto['total'], 3)
+        self.assertEqual([c['quantidade'] for c in contexto['categorias']], [2, 1] + [0] * 8)
+        self.assertAlmostEqual(contexto['categorias'][0]['percentual'], 200 / 3)
+        self.assertEqual(contexto['categorias'][1]['largura'], 50)
+        self.marcar(2, ids[0], False)
+        self.assertIn('2 marcações', self.client.get('/categorias').get_data(as_text=True))
+
     def test_persistencia_idempotencia_e_isolamento(self):
         antes_outro = self.client.get('/api/conteudos?usuario_id=2').json
         catalogo = self.client.get('/api/conteudos?usuario_id=1').json

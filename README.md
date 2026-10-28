@@ -1,6 +1,17 @@
 # StreamData — recomendação híbrida e regressão múltipla
 
-Aplicação didática em Flask, SQLite e NumPy. Selecione um dos 100 usuários fictícios, explore 60 títulos em 10 gêneros e marque/desmarque conteúdos como vistos. Não há cadastro nem autenticação.
+Aplicação didática em Flask, SQLite e NumPy. O painel Admin apresenta a visão geral de consumo e as regressões simples e múltipla. Explore os 100 perfis fictícios, 60 títulos e 10 gêneros; abra um perfil para consultar previsões, recomendações e editar seu histórico. Não há cadastro nem autenticação.
+
+## Navegação
+
+- `/`: indicadores globais, dispersão com reta de regressão simples e tabela pesquisável de usuários.
+- `/categorias`: ranking global de gêneros por marcações atuais.
+- `/catalogo`: títulos, gêneros e audiência, com busca e filtro.
+- `/analises`: regressões, comparação observado × previsto, métricas, simulador múltiplo e clusters.
+- `/usuarios/<id>`: dados individuais, estimativas, histórico inicial e atual, recomendações e marcação de títulos.
+- `/regressao`: redireciona para a regressão em Análises.
+
+Os gráficos SVG funcionam sem serviços externos. Os pontos abrem os perfis e seus valores também estão disponíveis em tabela. R² e erro absoluto médio descrevem o ajuste na própria amostra. As marcações atualizam o consumo atual, mas não retreinam as regressões baseadas nas horas originais e no histórico inicial. `GET /api/analises` expõe os dois modelos e as observações com previsões brutas e resíduos (observado menos previsto); as APIs anteriores continuam disponíveis.
 
 ## Documentação
 

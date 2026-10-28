@@ -15,7 +15,7 @@ projeto/
 ├── app.py                  Rotas HTTP e criação da aplicação
 ├── banco.py                SQLite, caminhos e carga inicial
 ├── recomendacao.py         Similaridades, clusters e ranking
-├── regressao.py            Regressão linear múltipla
+├── regressao.py            Regressões simples/múltipla e métricas
 ├── preparar_dados.py        Geração manual dos dados demonstrativos
 ├── popular_banco.py         Inicialização manual opcional
 ├── consultar_banco.py       Consulta de usuários e vistos no terminal
@@ -23,10 +23,14 @@ projeto/
 ├── streaming.db            Estado persistente local
 ├── dados/                  CSVs fixos e planilha original
 ├── docs/                   Estes guias
-├── templates/index.html    Estrutura da interface
+├── templates/              Admin, análises, catálogo e perfis
 ├── static/style.css        Aparência e responsividade
-├── static/script.js        Interação e chamadas à API
-└── tests/test_projeto.py    Testes automatizados
+├── static/script.js        Interações do perfil individual
+├── static/graficos.js      Dispersão, reta e comparação em SVG
+├── static/analises.js      Simulador e agrupamentos
+├── static/common.js        Formatação e consultas HTTP
+├── static/tabelas.js       Busca e filtros globais
+└── tests/                  Testes do projeto e do painel Admin
 ```
 
-Os CSVs inicializam uma base nova; o SQLite guarda o estado utilizado durante a execução. A recomendação usa as marcações atuais. A regressão usa o histórico inicial preservado. Essas três responsabilidades são diferentes e orientam a organização do projeto.
+Os CSVs inicializam uma base nova; o SQLite guarda o estado utilizado durante a execução. A recomendação e os totais de consumo usam as marcações atuais. As regressões usam as horas originais; a múltipla também usa o histórico inicial preservado. O painel Admin reúne a visão geral, e os perfis permitem analisar e editar cada histórico individualmente.

@@ -1,0 +1,27 @@
+{% extends "base.html" %}{% block title %}Categorias mais assistidas{% endblock %}{% block content %}
+        <section class="intro">
+            <div><span class="eyebrow">PANORAMA DO CONSUMO</span>
+                <h1>Categorias mais assistidas</h1>
+                <p>Compare os gêneros mais assistidos por todos os usuários.</p>
+            </div>
+        </section>
+        <section class="panel" aria-labelledby="ranking-titulo">
+            <div class="section-heading"><h2 id="ranking-titulo">Ranking por gênero</h2><span class="pill">{{ total }} marcações</span></div>
+            <p class="muted" id="ranking-descricao">Cada marcação de um título como visto por um usuário conta uma vez. O percentual representa a participação no total de marcações; não mede horas ou reproduções repetidas. Os dados são atualizados ao abrir ou recarregar esta página.</p>
+            {% if total %}
+            <figure class="category-chart" aria-describedby="ranking-descricao">
+                <figcaption class="muted">Quantidade de marcações por gênero, da maior para a menor. Barras proporcionais à categoria líder.</figcaption>
+                <ol class="category-ranking">
+                    {% for categoria in categorias %}
+                    <li>
+                        <div class="category-label"><strong>{{ categoria.nome }}</strong><span>{{ categoria.quantidade }} <span class="muted">({{ ('%.1f'|format(categoria.percentual)).replace('.', ',') }}%)</span></span></div>
+                        <div class="category-track" aria-hidden="true"><span style="width: {{ categoria.largura }}%"></span></div>
+                    </li>
+                    {% endfor %}
+                </ol>
+            </figure>
+            {% else %}
+            <p class="empty">Ainda não há conteúdos marcados como vistos. Marque títulos no catálogo para visualizar o ranking.</p>
+            {% endif %}
+        </section>
+{% endblock %}

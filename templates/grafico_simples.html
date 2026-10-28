@@ -1,0 +1,12 @@
+<section class="panel" id="regressao" aria-labelledby="titulo-regressao">
+    <span class="eyebrow">REGRESSÃO LINEAR SIMPLES</span><h2 id="titulo-regressao">Tempo na plataforma × tempo assistido</h2>
+    <p class="muted">Cada ponto é um usuário. A reta resume a relação entre as duas medidas. Selecione um ponto ou use a tabela para abrir o perfil.</p>
+    {% set modelo = analises.simples %}
+    {% if modelo.disponivel %}
+    <div class="metrics"><span>Amostra <strong>{{ modelo.quantidade_registros }}</strong></span><span>R² <strong>{{ modelo.r_quadrado|numero }}</strong></span><span>Erro absoluto médio <strong>{{ modelo.erro_absoluto_medio|numero }} h</strong></span></div>
+    <code class="equation">{{ modelo.formula }}</code>
+    <div data-chart="simples" class="chart-container"></div>
+    <p class="chart-legend"><span class="legend-dot"></span> Usuários <span class="legend-line"></span> Reta ajustada</p>
+    {% else %}<p class="empty">{{ modelo.aviso }}</p>{% endif %}
+    <p class="muted">Ajuste na própria amostra; não representa precisão em novos usuários. Horas originais preservadas, independentes das marcações atuais.</p>
+</section>
