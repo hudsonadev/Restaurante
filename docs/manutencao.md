@@ -17,7 +17,7 @@ Verifique `git status --short` para distinguir alterações existentes das suas.
 | Alterar regressão | `regressao.py` | Validação em `app.py`, formulário e documentação |
 | Alterar API | `app.py` | Consumidores em `static/script.js` e testes |
 | Alterar visual e navegação | `templates/index.html`, `static/style.css`, `static/script.js` | IDs, eventos, acessibilidade e estados de carregamento |
-| Reproduzir dados demonstrativos | `preparar_dados.py` | Sobrescreve CSVs em `dados/`; não atualiza SQLite existente |
+| Reproduzir dados demonstrativos | `preparar_dados.py` | Sobrescreve usuários e histórico em `dados/`, preservando catálogo e gêneros; não atualiza SQLite existente |
 
 ## Regras que preservam o comportamento
 
@@ -38,7 +38,7 @@ Os arquivos em `dados/` são a fonte para criar bancos novos. O SQLite é a font
 
 Se uma tarefa futura mudar dados fixos em uma instalação existente, não basta editar o CSV nem executar `popular_banco.py`. Planeje uma nova versão de migração que atualize as entidades necessárias e preserve os vistos. Não apague o banco ou o marcador da versão 1 para forçar uma carga: isso pode perder histórico ou colidir com IDs existentes.
 
-O gerador pressupõe a base demonstrativa original de 100 IDs e usa listas fixas para nomes e títulos. Não é um importador genérico. Executá-lo sobrescreve os CSVs ativos com os dados gerados. Para experimentos, use cópias temporárias, não os arquivos do usuário.
+O gerador pressupõe a base demonstrativa original de 100 IDs e usa listas fixas para nomes e lê os títulos de `dados/conteudos.csv`. Não é um importador genérico. Executá-lo sobrescreve os CSVs de usuários e histórico com os dados gerados; preserva conteúdos e gêneros. Para experimentos, use cópias temporárias, não os arquivos do usuário.
 
 ## Executar e testar
 

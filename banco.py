@@ -10,7 +10,7 @@ CAMINHO_DATASET = DIRETORIO_DADOS / 'dataset_streaming.csv'
 
 
 def ler_csv(nome):
-    with (DIRETORIO_DADOS / nome).open(encoding='utf-8', newline='') as arquivo:
+    with (DIRETORIO_DADOS / nome).open(encoding='utf-8-sig', newline='') as arquivo:
         return list(csv.DictReader(arquivo))
 
 
@@ -65,6 +65,15 @@ def inicializar_banco():
             db.executemany('INSERT INTO historico_inicial VALUES (?,?)', historico)
             db.executemany('INSERT INTO visualizacoes VALUES (?,?)', historico)
             db.execute('INSERT INTO migracoes VALUES (1)')
+        if not db.execute('SELECT 1 FROM migracoes WHERE versao=2').fetchone():
+            # Troca o catálogo demonstrativo, preservando usuários e ambos os históricos.
+            catalogo = [(r['titulo'], int(r['genero_id']), int(r['conteudo_id']))
+                        for r in ler_csv('conteudos.csv')]
+            ids_atuais = {r[0] for r in db.execute('SELECT id FROM conteudos')}
+            if len(catalogo) != len(ids_atuais) or {r[2] for r in catalogo} != ids_atuais:
+                raise ValueError('A migração do catálogo exige os mesmos IDs existentes.')
+            db.executemany('UPDATE conteudos SET titulo=?, genero_id=? WHERE id=?', catalogo)
+            db.execute('INSERT INTO migracoes VALUES (2)')
         return db.execute('SELECT COUNT(*) FROM usuarios').fetchone()[0]
 
 

@@ -1,61 +1,61 @@
 conteudo_id,titulo,genero_id
-1,Operação Horizonte,1
-2,Última Missão,1
-3,Código de Aço,1
-4,Rota de Fuga,1
-5,Impacto Final,1
-6,Linha de Frente,1
-7,Além das Montanhas,2
-8,A Ilha Perdida,2
-9,Travessia Selvagem,2
-10,O Mapa Esquecido,2
-11,Expedição Aurora,2
-12,Estrada do Sol,2
-13,Órbita Distante,3
-14,Memórias do Futuro,3
-15,Colônia Marte,3
-16,Sinal do Infinito,3
-17,Depois da Terra,3
-18,Fronteira Temporal,3
-19,O Reino de Vidro,4
-20,Guardiões da Névoa,4
-21,A Última Feiticeira,4
-22,Floresta de Cristal,4
-23,O Livro das Marés,4
-24,Dragões do Norte,4
-25,Vizinhos por Acaso,5
-26,Férias em Família,5
-27,Plano Quase Perfeito,5
-28,Confusão no Escritório,5
-29,Um Dia de Sorte,5
-30,Receita de Risadas,5
-31,Cartas de Outono,6
-32,Encontro na Estação,6
-33,Entre Duas Cidades,6
-34,O Nosso Verão,6
-35,Café com Saudade,6
-36,Antes do Amanhã,6
-37,Casa de Memórias,7
-38,Dias de Recomeço,7
-39,Retratos da Vida,7
-40,Caminhos de Casa,7
-41,O Silêncio do Pai,7
-42,Pequenas Coragens,7
-43,A Porta Fechada,8
-44,Testemunha Oculta,8
-45,O Último Bilhete,8
-46,Sombras da Cidade,8
-47,Segredo na Estrada,8
-48,Depois da Meia-Noite,8
-49,Vozes no Porão,9
-50,A Casa do Lago,9
-51,Noite Sem Fim,9
-52,O Visitante,9
-53,Ecos do Escuro,9
-54,A Vila Esquecida,9
-55,Oceanos Vivos,10
-56,Histórias do Sertão,10
-57,Por Dentro da Ciência,10
-58,O Mundo das Árvores,10
-59,Música sem Fronteiras,10
-60,Cidades do Amanhã,10
+1,Matrix (1999),1
+2,V de Vingança (2005),1
+3,Tropa de Elite (2007),1
+4,Distrito 9 (2009),1
+5,Dersu Uzala (1975),2
+6,A Missão (1986),2
+7,Dançando com Lobos (1990),2
+8,O Abraço da Serpente (2015),2
+9,Stalker (1979),3
+10,Solaris (1972),3
+11,2001: Uma Odisseia no Espaço (1968),3
+12,Blade Runner (1982),3
+13,Blade Runner 2049 (2017),3
+14,A Chegada (2016),3
+15,Gattaca (1997),3
+16,Filhos da Esperança (2006),3
+17,Interestelar (2014),3
+18,Ex Machina (2014),3
+19,Duna (2021),3
+20,Duna: Parte Dois (2024),3
+21,O Labirinto do Fauno (2006),4
+22,Pobres Criaturas (2023),4
+23,O Sétimo Selo (1957),4
+24,Dr. Fantástico (1964),5
+25,O Grande Ditador (1940),5
+26,Tempos Modernos (1936),5
+27,Não Olhe para Cima (2021),5
+28,O Auto da Compadecida (2000),5
+29,O Show de Truman (1998),5
+30,Birdman (2014),5
+31,Brilho Eterno de uma Mente sem Lembranças (2004),6
+32,Ela (2013),6
+33,Perfect Days (2023),7
+34,Persona (1966),7
+35,Whiplash (2014),7
+36,Gênio Indomável (1997),7
+37,Central do Brasil (1998),7
+38,Que Horas Ela Volta? (2015),7
+39,Aquarius (2016),7
+40,Marte Um (2022),7
+41,Ainda Estou Aqui (2024),7
+42,Cidade de Deus (2002),7
+43,A Lista de Schindler (1993),7
+44,O Pianista (2002),7
+45,Oppenheimer (2023),7
+46,12 Anos de Escravidão (2013),7
+47,Ilha do Medo (2010),8
+48,Amnésia (2000),8
+49,O Operário (2004),8
+50,Clube da Luta (1999),8
+51,Parasita (2019),8
+52,Bacurau (2019),8
+53,A Vida dos Outros (2006),8
+54,O Som ao Redor (2012),8
+55,"Alien, o Oitavo Passageiro (1979)",9
+56,O Enigma de Outro Mundo (1982),9
+57,Aniquilação (2018),9
+58,O Poço (2019),9
+59,O Sacrifício do Cervo Sagrado (2017),9
+60,"Amazônia, Sociedade Anônima (2019)",10

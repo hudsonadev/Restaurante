@@ -25,6 +25,8 @@ Acesse http://127.0.0.1:5000. Em um ambiente novo, crie um virtualenv e instale 
 
 ## Dados e persistência
 
+O catálogo contém 60 filmes reais selecionados da lista fornecida pelo usuário, com ano no título e um gênero principal definido para esta demonstração. Usuários e históricos continuam sintéticos. A migração 2 substitui títulos e gêneros mantendo os IDs e os dois históricos. As marcações passam a representar os novos títulos; mudanças de gênero podem alterar clusters e coeficientes da regressão.
+
 - `dados/dataset_streaming.csv`: IDs originais, nomes fictícios e as horas originais preservadas.
 - `dados/generos.csv` e `dados/conteudos.csv`: catálogo fixo; um gênero principal por título.
 - `dados/historico_inicial.csv`: histórico demonstrativo fixo, com sobreposição entre perfis. Usuários 20, 40, 60, 80 e 100 começam sem histórico.
@@ -34,7 +36,7 @@ Todos os CSVs ficam em `dados/`. Os caminhos são resolvidos a partir do diretó
 
 A primeira inicialização cria as tabelas e copia os CSVs em uma transação. A tabela `migracoes` impede que reinicializações restaurem conteúdos desmarcados ou apaguem novas marcações. A tabela antiga `engajamento`, se existir, é preservada. O histórico inicial fica em uma tabela separada para a regressão. A aplicação também inicializa corretamente quando importada por um servidor WSGI.
 
-`preparar_dados.py` documenta e reproduz a geração determinística dos CSVs (semente 20261027). Não é executado pela aplicação e não altera o banco. Alterar CSVs depois da primeira carga não modifica o banco existente. Não exclua o banco se quiser preservar o histórico.
+`preparar_dados.py` gera nomes e históricos sintéticos (semente 20261027), lendo o catálogo atual e preservando `conteudos.csv` e `generos.csv`. Não é executado pela aplicação e não altera o banco. Uma nova geração usa os gêneros atuais e pode diferir do histórico antigo. Alterações futuras nos CSVs exigem uma nova migração para atualizar bancos já carregados. Não exclua o banco se quiser preservar o histórico.
 
 ## Como as recomendações funcionam
 

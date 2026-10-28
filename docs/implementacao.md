@@ -37,7 +37,7 @@ O diretório [dados/](../dados/) contém todos os CSVs. Os quatro arquivos ativo
 
 ### Geração demonstrativa
 
-`preparar_dados.py` lê os IDs e horas do dataset existente, produz nomes, catálogo e histórico e sobrescreve os quatro CSVs ativos. Não é executado automaticamente. Não gera os dados originais de horas do zero.
+`preparar_dados.py` lê os IDs e horas do dataset existente, produz nomes e histórico e sobrescreve apenas os CSVs de usuários e histórico; o catálogo de filmes e os gêneros são preservados. Não é executado automaticamente. Não gera os dados originais de horas do zero.
 
 A semente `20261027` torna a geração reproduzível com a mesma entrada. Cada usuário com histórico recebe de 3 a 17 títulos distintos. Três conjuntos de preferências aumentam o peso de seleção de determinados gêneros: peso 9 dentro da preferência e 0,4 fora dela. Os IDs 20, 40, 60, 80 e 100 começam sem histórico.
 
@@ -52,13 +52,13 @@ Esses conjuntos servem apenas para fabricar uma amostra com padrões. Os cluster
 | `conteudos` | ID, título e chave estrangeira para gênero |
 | `visualizacoes` | Histórico editável; chave composta `(usuario_id, conteudo_id)` |
 | `historico_inicial` | Cópia inicial dos vistos, usada pela regressão |
-| `migracoes` | Versões de carga aplicadas; atualmente versão 1 |
+| `migracoes` | Versões de carga aplicadas; atualmente versões 1 e 2 |
 
 A tabela antiga `engajamento`, quando presente, é preservada, mas não alimenta os cálculos atuais.
 
 `app.criar_app()` chama `inicializar_banco()`. O módulo também cria `app` ao ser importado, garantindo inicialização no uso via WSGI. A criação de tabelas usa `CREATE TABLE IF NOT EXISTS`. Em seguida, `BEGIN IMMEDIATE` serializa a carga: quando a versão 1 ainda não existe, os CSVs são inseridos, os vistos são copiados para as duas tabelas de histórico e a versão é registrada na mesma transação.
 
-Em próximas inicializações, a versão impede recarga. Portanto, alterações nos CSVs não atualizam automaticamente um banco já carregado. Isso evita restaurar um conteúdo desmarcado ou apagar novas marcações.
+Em próximas inicializações, a versão 1 impede recarga dos históricos. A versão 2 atualiza títulos e gêneros pelos mesmos IDs, usando os 60 filmes selecionados da lista do usuário. Ela preserva os pares de ambos os históricos; a mudança de gênero pode alterar os coeficientes da regressão, pois o gênero é consultado no catálogo atual. Portanto, alterações nos CSVs não atualizam automaticamente um banco já carregado. Isso evita restaurar um conteúdo desmarcado ou apagar novas marcações.
 
 As conexões habilitam chaves estrangeiras e retornam `sqlite3.Row`. A classe `Conexao` fecha a conexão ao sair do bloco `with`, depois do commit ou rollback, evitando arquivos presos no Windows.
 

@@ -141,6 +141,20 @@ class ProjetoTest(unittest.TestCase):
         with banco.conectar() as db:
             self.assertEqual(tuple(db.execute('SELECT * FROM engajamento').fetchone()), (1,4.5))
 
+    def test_migracao_catalogo_preserva_historicos(self):
+        self.marcar(20, 1, True)
+        with banco.conectar() as db:
+            antes = [tuple(r) for r in db.execute('SELECT * FROM visualizacoes ORDER BY 1,2')]
+            inicial = [tuple(r) for r in db.execute('SELECT * FROM historico_inicial ORDER BY 1,2')]
+            db.execute('DELETE FROM migracoes WHERE versao=2')
+            db.execute("UPDATE conteudos SET titulo='Título antigo', genero_id=10 WHERE id=1")
+        banco.inicializar_banco()
+        banco.inicializar_banco()
+        with banco.conectar() as db:
+            self.assertEqual(tuple(db.execute('SELECT titulo,genero_id FROM conteudos WHERE id=1').fetchone()), ('Matrix (1999)',1))
+            self.assertEqual(antes, [tuple(r) for r in db.execute('SELECT * FROM visualizacoes ORDER BY 1,2')])
+            self.assertEqual(inicial, [tuple(r) for r in db.execute('SELECT * FROM historico_inicial ORDER BY 1,2')])
+
 
 class MatematicaTest(unittest.TestCase):
     def test_cosseno_e_clusters_conhecidos(self):
