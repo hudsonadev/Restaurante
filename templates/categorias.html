@@ -1,16 +1,13 @@
 {% extends "base.html" %}{% block title %}Categorias mais assistidas{% endblock %}{% block content %}
-        <section class="intro">
-            <div><span class="eyebrow">PANORAMA DO CONSUMO</span>
-                <h1>Categorias mais assistidas</h1>
-                <p>Compare os gêneros mais assistidos por todos os usuários.</p>
-            </div>
-        </section>
+        <header class="page-header">
+            <h1>Categorias mais assistidas</h1>
+        </header>
         <section class="panel" aria-labelledby="ranking-titulo">
-            <div class="section-heading"><h2 id="ranking-titulo">Ranking por gênero</h2><span class="pill">{{ total }} marcações</span></div>
-            <p class="muted" id="ranking-descricao">Cada marcação de um título como visto por um usuário conta uma vez. O percentual representa a participação no total de marcações; não mede horas ou reproduções repetidas. Os dados são atualizados ao abrir ou recarregar esta página.</p>
+            <div class="section-heading"><h2 id="ranking-titulo">Ranking por gênero</h2><span class="count-label">{{ total }} marcações</span></div>
+            <p class="muted" id="ranking-descricao">Cada título marcado como visto por um usuário conta uma vez. O percentual é a participação no total de marcações; não mede horas nem reproduções repetidas. Atualizado a cada carregamento da página.</p>
             {% if total %}
             <figure class="category-chart" aria-describedby="ranking-descricao">
-                <figcaption class="muted">Quantidade de marcações por gênero, da maior para a menor. Barras proporcionais à categoria líder.</figcaption>
+                <figcaption class="muted">Marcações por gênero, da maior para a menor. Barras proporcionais à categoria líder.</figcaption>
                 <ol class="category-ranking">
                     {% for categoria in categorias %}
                     <li>
@@ -21,7 +18,7 @@
                 </ol>
             </figure>
             {% else %}
-            <p class="empty">Ainda não há conteúdos marcados como vistos. Marque títulos no catálogo para visualizar o ranking.</p>
+            <p class="empty">Ainda não há conteúdos marcados como vistos. Marque títulos no perfil de um usuário para gerar o ranking.</p>
             {% endif %}
         </section>
 {% endblock %}

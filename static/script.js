@@ -26,10 +26,10 @@ document.querySelector('.tabs').addEventListener('keydown', event => {
 
 function card(item, ranking) {
     return `<article class="card ${item.visto ? 'is-watched' : ''}" style="--hue:${(item.genero_id * 33 + 70) % 360}">
-        <div class="card-art"><span class="tag">${escapeHtml(item.genero)}</span>${ranking ? `<span class="rank">${String(ranking).padStart(2,'0')}</span>` : ''}</div>
+        <div class="card-art"><span class="tag">${escapeHtml(item.genero)}</span>${ranking ? `<span class="rank">${ranking}</span>` : ''}</div>
         <div class="card-body"><h3>${escapeHtml(item.titulo)}</h3>
-        ${item.motivos ? `<details class="reason"><summary>Por que esta sugestão?</summary><p>${item.motivos.map(escapeHtml).join(' ')}</p><small>Índice de afinidade: ${fmt(item.pontuacao)}. Não representa probabilidade.</small></details>` : `<p class="watch-state">${item.visto ? '✓ No seu histórico' : 'Disponível para descobrir'}</p>`}
-        <button type="button" ${carregando || salvando ? 'disabled' : ''} data-conteudo="${item.id}" data-visto="${!item.visto}" aria-label="${item.visto ? 'Desmarcar' : 'Marcar como visto'}: ${escapeHtml(item.titulo)}">${item.visto ? 'Desmarcar' : '<span aria-hidden="true">＋</span> Marcar como visto'}</button></div></article>`;
+        ${item.motivos ? `<details class="reason"><summary>Por que foi recomendado</summary><p>${item.motivos.map(escapeHtml).join(' ')}</p><small>Pontuação ${fmt(item.pontuacao)} (ordenação, não probabilidade).</small></details>` : `<p class="watch-state">${item.visto ? 'Assistido' : 'Não assistido'}</p>`}
+        <button type="button" ${carregando || salvando ? 'disabled' : ''} data-conteudo="${item.id}" data-visto="${!item.visto}" aria-label="${item.visto ? 'Desmarcar' : 'Marcar como visto'}: ${escapeHtml(item.titulo)}">${item.visto ? 'Desmarcar' : 'Marcar como visto'}</button></div></article>`;
 }
 
 function renderCatalogo() {
@@ -44,14 +44,14 @@ function renderCatalogo() {
     $('#total-vistos').textContent = vistos.length;
     $('#atual-vistos').textContent = vistos.length;
     $('#atual-generos').textContent = new Set(vistos.map(c => c.genero_id)).size;
-    $('#historico').innerHTML = vistos.map(c => card(c)).join('') || '<p class="empty">Seu histórico está vazio. Marque um conteúdo para começar.</p>';
+    $('#historico').innerHTML = vistos.map(c => card(c)).join('') || '<p class="empty">Histórico vazio. Marque um título no catálogo para incluí-lo.</p>';
 }
 
 async function carregarUsuario() {
     const versao = ++requisicao, usuario = $('#usuario').value;
     carregando = true;
     document.querySelectorAll('.view').forEach(view => view.setAttribute('aria-busy', 'true'));
-    $('#status').textContent = 'Atualizando recomendações…';
+    $('#status').textContent = 'Carregando…';
     document.querySelectorAll('[data-conteudo]').forEach(b => b.disabled = true);
     try {
         const [conteudos, recomendacoes] = await Promise.all([
@@ -60,13 +60,13 @@ async function carregarUsuario() {
         if (versao !== requisicao) return;
         catalogo = conteudos;
         carregando = false;
-        $('#recomendacoes').innerHTML = recomendacoes.recomendacoes.map((c,i) => card(c,i+1)).join('') || '<p class="empty">Você já assistiu a todo o catálogo.</p>';
-        $('#recomendacoes-titulo').textContent = `Sugestões para ${recomendacoes.usuario.nome.split(' ')[0]}`;
-        $('#recomendacoes-nota').textContent = recomendacoes.sem_historico ? 'Comece pelos mais assistidos. Marque o que já viu para personalizar suas sugestões.' : 'Selecionadas a partir do que você assiste e de pessoas com gostos parecidos.';
+        $('#recomendacoes').innerHTML = recomendacoes.recomendacoes.map((c,i) => card(c,i+1)).join('') || '<p class="empty">Este usuário já assistiu a todo o catálogo.</p>';
+        $('#recomendacoes-titulo').textContent = `Recomendações para ${recomendacoes.usuario.nome.split(' ')[0]}`;
+        $('#recomendacoes-nota').textContent = recomendacoes.sem_historico ? 'Sem histórico: títulos ordenados por popularidade na base.' : 'Ordenadas por afinidade de gênero (50%) e pelo que usuários semelhantes assistiram (50%).';
         $('#vizinhos').innerHTML = recomendacoes.usuarios_semelhantes.map(u => `<div class="neighbor">${escapeHtml(u.nome)}<small>Similaridade ${fmt(u.similaridade)}</small></div>`).join('') || '<p class="muted">Ainda não há usuários com consumo semelhante.</p>';
         renderCatalogo();
         $('#erro').textContent = '';
-        $('#status').textContent = `Seleção de ${recomendacoes.usuario.nome} atualizada.`;
+        $('#status').textContent = `Dados de ${recomendacoes.usuario.nome} atualizados.`;
     } catch (erro) {
         if (versao !== requisicao) return;
         catalogo = [];

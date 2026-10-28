@@ -1,8 +1,8 @@
         <section id="clusters" class="panel" aria-labelledby="clusters-titulo">
-            <span class="eyebrow">CONEXÕES DO CATÁLOGO</span><h2 id="clusters-titulo">Gêneros que andam juntos</h2>
-            <p class="muted">Os três grupos são aprendidos pelo consumo de todos os usuários. As recomendações também atravessam os grupos.</p>
+            <h2 id="clusters-titulo">Agrupamento de gêneros</h2>
+            <p class="muted">Três grupos formados pelo consumo de todos os usuários (ligação média, distância 1 − cosseno). As recomendações não ficam restritas a um grupo.</p>
             <div id="grupos" class="cluster-grid"></div>
-            <label for="genero-proximidade">Explorar proximidade de</label> <select id="genero-proximidade"></select>
-            <p class="muted">Do mais próximo ao mais distante. Distância 0 indica consumo proporcional; 1 indica ausência de similaridade observada.</p>
+            <div class="filters"><label for="genero-proximidade">Proximidade a partir de<select id="genero-proximidade"></select></label></div>
+            <p class="muted">Do mais próximo ao mais distante. Distância 0 indica consumo proporcional; 1, nenhuma similaridade observada.</p>
             <ol id="proximos" class="distances"></ol>
         </section>

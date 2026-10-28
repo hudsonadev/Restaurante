@@ -2,12 +2,12 @@
 {% block title %}Visão geral{% endblock %}
 {% block scripts %}<script src="{{ url_for('static', filename='graficos.js') }}" defer></script><script src="{{ url_for('static', filename='tabelas.js') }}" defer></script>{% endblock %}
 {% block content %}
-<section class="intro"><div><span class="eyebrow">ADMIN / VISÃO GERAL</span><h1>O consumo em perspectiva</h1><p>Explore os dados, compare os modelos e conheça cada perfil.</p></div><a class="action-link" href="/analises">Explorar análises →</a></section>
-<section class="stats-grid" aria-label="Indicadores gerais">
-    {% for chave, nome in [('usuarios','Usuários'),('conteudos','Títulos'),('generos','Gêneros'),('visualizacoes','Marcações atuais')] %}<article class="stat"><span>{{ nome }}</span><strong>{{ indicadores[chave] }}</strong></article>{% endfor %}
-    <article class="stat"><span>Média na plataforma / dia</span><strong>{{ medias[0]|numero }} <small>h</small></strong></article>
-    <article class="stat"><span>Média assistida / dia</span><strong>{{ medias[1]|numero }} <small>h</small></strong></article>
-</section>
+<header class="page-header"><h1>Visão geral</h1></header>
+<dl class="figures" aria-label="Indicadores gerais">
+    {% for chave, nome in [('usuarios','Usuários'),('conteudos','Títulos'),('generos','Gêneros'),('visualizacoes','Marcações atuais')] %}<div><dt>{{ nome }}</dt><dd>{{ indicadores[chave] }}</dd></div>{% endfor %}
+    <div><dt>Na plataforma / dia</dt><dd>{{ medias[0]|numero }} <small>h</small></dd></div>
+    <div><dt>Assistindo / dia</dt><dd>{{ medias[1]|numero }} <small>h</small></dd></div>
+</dl>
 {% include "grafico_simples.html" %}
 {% include "observacoes.html" %}
 <script id="dados-analises" type="application/json">{{ analises|tojson }}</script>
