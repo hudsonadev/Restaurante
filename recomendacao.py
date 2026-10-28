@@ -1,4 +1,4 @@
-"""Recomendação explicável com cosseno e agrupamento hierárquico médio."""
+"""Sugestões explicáveis de pratos com cosseno e agrupamento hierárquico médio."""
 import numpy as np
 from banco import conectar
 
@@ -25,76 +25,76 @@ def agrupar(distancias, ids, quantidade=3):
 
 def carregar_estado():
     with conectar() as db:
-        usuarios = [dict(r) for r in db.execute('SELECT id,nome FROM usuarios ORDER BY id')]
-        generos = [dict(r) for r in db.execute('SELECT * FROM generos ORDER BY id')]
-        conteudos = [dict(r) for r in db.execute('''SELECT c.*, g.nome AS genero
-            FROM conteudos c JOIN generos g ON c.genero_id=g.id ORDER BY c.id''')]
-        vistos = list(db.execute('SELECT * FROM visualizacoes'))
-    ui = {u['id']: i for i, u in enumerate(usuarios)}
-    ci = {c['id']: i for i, c in enumerate(conteudos)}
-    gi = {g['id']: i for i, g in enumerate(generos)}
-    matriz = np.zeros((len(usuarios), len(conteudos)))
-    for u, c in vistos:
-        matriz[ui[u], ci[c]] = 1
-    contagens = np.zeros((len(usuarios), len(generos)))
-    for j, c in enumerate(conteudos):
-        contagens[:, gi[c['genero_id']]] += matriz[:, j]
+        pedidos = [dict(r) for r in db.execute('SELECT id,cliente FROM pedidos ORDER BY id')]
+        categorias = [dict(r) for r in db.execute('SELECT * FROM categorias ORDER BY id')]
+        pratos = [dict(r) for r in db.execute('''SELECT p.*, c.nome AS categoria
+            FROM pratos p JOIN categorias c ON p.categoria_id=c.id ORDER BY p.id''')]
+        itens = list(db.execute('SELECT * FROM itens_pedido'))
+    pi = {p['id']: i for i, p in enumerate(pedidos)}
+    ri = {p['id']: i for i, p in enumerate(pratos)}
+    ci = {c['id']: i for i, c in enumerate(categorias)}
+    matriz = np.zeros((len(pedidos), len(pratos)))
+    for pedido, prato in itens:
+        matriz[pi[pedido], ri[prato]] = 1
+    contagens = np.zeros((len(pedidos), len(categorias)))
+    for j, prato in enumerate(pratos):
+        contagens[:, ci[prato['categoria_id']]] += matriz[:, j]
     totais = contagens.sum(axis=1, keepdims=True)
     perfis = np.divide(contagens, totais, out=np.zeros_like(contagens), where=totais != 0)
-    return usuarios, generos, conteudos, matriz, perfis, cosseno(contagens.T)
+    return pedidos, categorias, pratos, matriz, perfis, cosseno(contagens.T)
 
 
 def obter_clusters(estado=None):
-    _, generos, _, _, _, similaridades = estado or carregar_estado()
+    _, categorias, _, _, _, similaridades = estado or carregar_estado()
     distancias = 1 - similaridades
-    ids = [g['id'] for g in generos]
+    ids = [c['id'] for c in categorias]
     grupos = agrupar(distancias, ids)
     return {
-        'grupos': [{'id': i + 1, 'generos': [g for g in generos if g['id'] in grupo]}
+        'grupos': [{'id': i + 1, 'categorias': [c for c in categorias if c['id'] in grupo]}
                    for i, grupo in enumerate(grupos)],
-        'generos': [{**g, 'proximos': sorted([
-            {**outro, 'distancia': float(distancias[i, j]),
+        'categorias': [{**c, 'proximos': sorted([
+            {**outra, 'distancia': float(distancias[i, j]),
              'similaridade': float(similaridades[i, j])}
-            for j, outro in enumerate(generos) if i != j],
+            for j, outra in enumerate(categorias) if i != j],
             key=lambda item: (item['distancia'], item['id']))}
-            for i, g in enumerate(generos)]}
+            for i, c in enumerate(categorias)]}
 
 
-def recomendar(usuario_id):
-    usuarios, generos, conteudos, matriz, perfis, sim_generos = carregar_estado()
-    indice = next((i for i, u in enumerate(usuarios) if u['id'] == usuario_id), None)
+def recomendar(pedido_id):
+    pedidos, categorias, pratos, matriz, perfis, sim_categorias = carregar_estado()
+    indice = next((i for i, p in enumerate(pedidos) if p['id'] == pedido_id), None)
     if indice is None:
-        raise LookupError('Usuário não encontrado.')
+        raise LookupError('Pedido não encontrado.')
     similaridades = cosseno(perfis)[indice]
-    vizinhos = sorted([i for i in range(len(usuarios))
+    vizinhos = sorted([i for i in range(len(pedidos))
                        if i != indice and similaridades[i] > 0],
-                      key=lambda i: (-similaridades[i], usuarios[i]['id']))[:5]
-    gi = {g['id']: i for i, g in enumerate(generos)}
+                      key=lambda i: (-similaridades[i], pedidos[i]['id']))[:5]
+    ci = {c['id']: i for i, c in enumerate(categorias)}
     popularidade = matriz.sum(axis=0)
-    sem_historico = not matriz[indice].any()
-    afinidades = perfis[indice] @ sim_generos
-    itens = []
-    for j, conteudo in enumerate(conteudos):
+    pedido_vazio = not matriz[indice].any()
+    afinidades = perfis[indice] @ sim_categorias
+    sugestoes = []
+    for j, prato in enumerate(pratos):
         if matriz[indice, j]:
             continue
-        genero = gi[conteudo['genero_id']]
-        afinidade = float(afinidades[genero])
+        categoria = ci[prato['categoria_id']]
+        afinidade = float(afinidades[categoria])
         colaborativa = float(np.average(matriz[vizinhos, j], weights=similaridades[vizinhos])) if vizinhos else 0
-        score = float(popularidade[j] / max(1, len(usuarios))) if sem_historico else (
+        score = float(popularidade[j] / max(1, len(pedidos))) if pedido_vazio else (
             (afinidade + colaborativa) / 2 if vizinhos else afinidade)
         motivos = []
-        if sem_historico:
-            motivos.append(f'Popular na base: visto por {int(popularidade[j])} usuários.')
+        if pedido_vazio:
+            motivos.append(f'Popular: presente em {int(popularidade[j])} pedidos.')
         elif afinidade > 0:
-            referencia = max(range(len(generos)), key=lambda k: perfis[indice, k] * sim_generos[k, genero])
-            motivos.append(f"Afinidade com {generos[referencia]['nome']}, presente no seu histórico.")
-        nomes = [usuarios[i]['nome'] for i in vizinhos if matriz[i, j]]
+            referencia = max(range(len(categorias)), key=lambda k: perfis[indice, k] * sim_categorias[k, categoria])
+            motivos.append(f"Combina com {categorias[referencia]['nome']}, presente no pedido.")
+        nomes = [f"#{pedidos[i]['id']} {pedidos[i]['cliente']}" for i in vizinhos if matriz[i, j]]
         if nomes:
-            motivos.append('Visto por usuários semelhantes: ' + ', '.join(nomes) + '.')
-        itens.append({**conteudo, 'pontuacao': score, 'afinidade_genero': afinidade,
-                      'pontuacao_colaborativa': colaborativa, 'popularidade': int(popularidade[j]),
-                      'motivos': motivos or ['Sugestão para explorar o catálogo, sem afinidade observada.']})
-    itens.sort(key=lambda c: (-c['pontuacao'], -c['popularidade'], c['id']))
-    return {'usuario': usuarios[indice], 'sem_historico': sem_historico,
-            'recomendacoes': itens[:10],
-            'usuarios_semelhantes': [{**usuarios[i], 'similaridade': float(similaridades[i])} for i in vizinhos]}
+            motivos.append('Incluído em pedidos semelhantes: ' + ', '.join(nomes) + '.')
+        sugestoes.append({**prato, 'pontuacao': score, 'afinidade_categoria': afinidade,
+                          'pontuacao_colaborativa': colaborativa, 'popularidade': int(popularidade[j]),
+                          'motivos': motivos or ['Opção para variar o pedido, sem afinidade observada.']})
+    sugestoes.sort(key=lambda c: (-c['pontuacao'], -c['popularidade'], c['id']))
+    return {'pedido': pedidos[indice], 'pedido_vazio': pedido_vazio,
+            'sugestoes': sugestoes[:10],
+            'pedidos_semelhantes': [{**pedidos[i], 'similaridade': float(similaridades[i])} for i in vizinhos]}

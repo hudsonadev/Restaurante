@@ -1,0 +1,61 @@
+prato_id,nome,categoria_id
+1,Bruschetta de tomate,1
+2,Bolinho de bacalhau,1
+3,Carpaccio,1
+4,Pastel de feira,1
+5,Dadinho de tapioca,1
+6,Croquete de costela,1
+7,Salada Caesar,2
+8,Salada caprese,2
+9,Salada de grão-de-bico,2
+10,Salada tropical,2
+11,Salada de quinoa,2
+12,Salada verde,2
+13,Caldo verde,3
+14,Creme de abóbora,3
+15,Sopa de legumes,3
+16,Caldo de feijão,3
+17,Canja de galinha,3
+18,Creme de cebola,3
+19,Suco de laranja,4
+20,Limonada suíça,4
+21,Refrigerante lata,4
+22,Água com gás,4
+23,Chá gelado,4
+24,Café expresso,4
+25,Espaguete à bolonhesa,5
+26,Lasanha à bolonhesa,5
+27,Fettuccine Alfredo,5
+28,Penne ao pesto,5
+29,Nhoque ao sugo,5
+30,Ravióli de queijo,5
+31,Risoto de cogumelos,6
+32,Risoto de camarão,6
+33,Risoto de limão-siciliano,6
+34,Risoto de abóbora,6
+35,Risoto de filé,6
+36,Risoto de alho-poró,6
+37,Picanha grelhada,7
+38,Filé de frango grelhado,7
+39,Bife ancho,7
+40,Costela suína,7
+41,Salmão grelhado,7
+42,Linguiça artesanal,7
+43,X-burger,8
+44,X-salada,8
+45,Sanduíche natural,8
+46,Misto quente,8
+47,Hambúrguer vegetariano,8
+48,Wrap de frango,8
+49,Batata frita,9
+50,Mandioca frita,9
+51,Isca de peixe,9
+52,Calabresa acebolada,9
+53,Anéis de cebola,9
+54,Frango a passarinho,9
+55,Pudim de leite,10
+56,Petit gâteau,10
+57,Mousse de maracujá,10
+58,Brownie com sorvete,10
+59,Torta de limão,10
+60,Sorvete de creme,10

@@ -1,12 +1,12 @@
 <section class="panel" id="regressao" aria-labelledby="titulo-regressao">
-    <h2 id="titulo-regressao">Regressão simples: plataforma × assistido</h2>
-    <p class="muted">Cada ponto é um usuário; a linha é a reta ajustada por mínimos quadrados. Clique em um ponto para abrir o perfil.</p>
+    <h2 id="titulo-regressao">Regressão simples: itens × tempo de preparo</h2>
+    <p class="muted">Cada ponto é um pedido; a linha é a reta Y = B0 + B1·X ajustada manualmente por mínimos quadrados. Pontos com o mesmo número de itens foram afastados levemente na horizontal para não se sobreporem. Clique em um ponto para abrir o pedido.</p>
     {% set modelo = analises.simples %}
     {% if modelo.disponivel %}
-    <div class="metrics"><span>Amostra <strong>{{ modelo.quantidade_registros }}</strong></span><span>R² <strong>{{ modelo.r_quadrado|numero }}</strong></span><span>Erro absoluto médio <strong>{{ modelo.erro_absoluto_medio|numero }} h</strong></span></div>
+    <div class="metrics"><span>Amostra <strong>{{ modelo.quantidade_registros }}</strong></span><span>R² <strong>{{ modelo.r_quadrado|numero(3) }}</strong></span><span>Erro absoluto médio <strong>{{ modelo.erro_absoluto_medio|numero(2) }} min</strong></span></div>
     <code class="equation">{{ modelo.formula }}</code>
     <div data-chart="simples" class="chart-container"></div>
-    <p class="chart-legend"><span class="legend-dot"></span> Usuários <span class="legend-line"></span> Reta ajustada</p>
+    <p class="chart-legend"><span class="legend-dot"></span> Pedidos <span class="legend-line"></span> Reta ajustada</p>
     {% else %}<p class="empty">{{ modelo.aviso }}</p>{% endif %}
-    <p class="note">Ajuste medido na própria amostra, sem validação em novos usuários. Usa as horas originais, que não mudam com as marcações.</p>
+    <p class="note">Ajuste medido na própria amostra, sem validação em pedidos novos. Usa os itens originais de cada pedido, que não mudam com as edições.</p>
 </section>

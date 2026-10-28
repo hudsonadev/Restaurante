@@ -1,8 +1,13 @@
-"""Regressão múltipla sobre a fotografia imutável do histórico inicial."""
+"""Regressões do tempo de preparo sobre a fotografia imutável dos itens originais."""
 import numpy as np
 from banco import conectar
 
-VARIAVEIS = ['tempo_plataforma', 'quantidade_vistos', 'quantidade_generos']
+VARIAVEIS = ['quantidade_itens', 'pedidos_na_fila', 'quantidade_categorias']
+ROTULOS = {'quantidade_itens': 'itens', 'pedidos_na_fila': 'fila', 'quantidade_categorias': 'categorias'}
+
+
+def br(valor, casas=2):
+    return f'{valor:.{casas}f}'.replace('.', ',')
 
 
 def ajustar_simples(x, y):
@@ -16,7 +21,7 @@ def ajustar_simples(x, y):
     if not np.isfinite(x).all() or not np.isfinite(y).all():
         raise ValueError('A amostra contém valores não finitos.')
     if np.all(x == x[0]):
-        raise ValueError('As horas na plataforma precisam variar para ajustar a reta.')
+        raise ValueError('A quantidade de itens precisa variar para ajustar a reta.')
     n = len(x)
     media_x, media_y = sum(x) / n, sum(y) / n
     sxy = sum((xi - media_x) * (yi - media_y) for xi, yi in zip(x, y))
@@ -29,37 +34,38 @@ def ajustar_simples(x, y):
     return np.array([b0, b1]), r2
 
 
-def obter_analises():
+def comparar_polyfit(x, y):
+    """Confere o ajuste manual contra numpy.polyfit(x, y, 1), que devolve [B1, B0]."""
+    (b0, b1), _ = ajustar_simples(x, y)
+    p1, p0 = np.polyfit(np.asarray(x, dtype=float), np.asarray(y, dtype=float), 1)
+    return {'manual': {'intercepto': float(b0), 'coeficiente': float(b1)},
+            'polyfit': {'intercepto': float(p0), 'coeficiente': float(p1)},
+            'diferenca_intercepto': abs(float(b0 - p0)),
+            'diferenca_coeficiente': abs(float(b1 - p1))}
+
+
+def carregar_observacoes():
     with conectar() as db:
-        pontos = [dict(r) for r in db.execute('''SELECT u.id, u.nome,
-            u.tempo_plataforma_horas AS tempo_plataforma,
-            u.tempo_assistindo_horas AS tempo_assistindo,
-            COUNT(h.conteudo_id) AS quantidade_vistos,
-            COUNT(DISTINCT c.genero_id) AS quantidade_generos
-            FROM usuarios u LEFT JOIN historico_inicial h ON h.usuario_id=u.id
-            LEFT JOIN conteudos c ON c.id=h.conteudo_id GROUP BY u.id ORDER BY u.id''')]
+        return [dict(r) for r in db.execute('''SELECT p.id, p.cliente, p.pedidos_na_fila,
+            p.tempo_preparo_min AS tempo_preparo,
+            COUNT(i.prato_id) AS quantidade_itens,
+            COUNT(DISTINCT c.categoria_id) AS quantidade_categorias
+            FROM pedidos p LEFT JOIN itens_originais i ON i.pedido_id=p.id
+            LEFT JOIN pratos c ON c.id=i.prato_id GROUP BY p.id ORDER BY p.id''')]
+
+
+def resumo_simples(pontos):
     simples = {'disponivel': False, 'quantidade_registros': len(pontos)}
+    x = [p['quantidade_itens'] for p in pontos]
+    y = [p['tempo_preparo'] for p in pontos]
     try:
-        coef, r2 = ajustar_simples([p['tempo_plataforma'] for p in pontos],
-                                  [p['tempo_assistindo'] for p in pontos])
-        simples.update(disponivel=True, intercepto=float(coef[0]), coeficiente=float(coef[1]),
-                       r_quadrado=r2, formula=f'ŷ = {coef[0]:.4f} {coef[1]:+.4f} × horas na plataforma')
+        coef, r2 = ajustar_simples(x, y)
     except ValueError as erro:
-        simples['aviso'] = str(erro)
-    multipla = obter_resumo_modelo()
-    for p in pontos:
-        p['previsao_simples'] = simples['intercepto'] + simples['coeficiente'] * p['tempo_plataforma'] if simples['disponivel'] else None
-        p['previsao_multipla'] = multipla['intercepto'] + sum(multipla['coeficientes'][v] * p[v] for v in VARIAVEIS) if multipla['disponivel'] else None
-        for nome in ('simples', 'multipla'):
-            previsto = p[f'previsao_{nome}']
-            p[f'residuo_{nome}'] = p['tempo_assistindo'] - previsto if previsto is not None else None
-        # JSON estrito: valores inválidos não viram NaN/Infinity na resposta.
-        for chave, valor in p.items():
-            if isinstance(valor, float) and not np.isfinite(valor):
-                p[chave] = None
-    for nome, modelo in [('simples', simples), ('multipla', multipla)]:
-        modelo['erro_absoluto_medio'] = float(np.mean([abs(p[f'residuo_{nome}']) for p in pontos])) if modelo['disponivel'] else None
-    return {'simples': simples, 'multipla': multipla, 'observacoes': pontos}
+        return {**simples, 'aviso': str(erro)}
+    simples.update(disponivel=True, intercepto=float(coef[0]), coeficiente=float(coef[1]), r_quadrado=r2,
+                   intervalo=[float(min(x)), float(max(x))], comparacao_polyfit=comparar_polyfit(x, y),
+                   formula=f'ŷ = {br(coef[0], 4)} {"+" if coef[1] >= 0 else "−"} {br(abs(coef[1]), 4)} × itens')
+    return simples
 
 
 def ajustar_modelo(x, y):
@@ -78,16 +84,12 @@ def ajustar_modelo(x, y):
     return coeficientes, r2
 
 
-def obter_resumo_modelo(incluir_dados=False):
-    with conectar() as db:
-        linhas = db.execute('''SELECT u.tempo_plataforma_horas,
-            COUNT(h.conteudo_id), COUNT(DISTINCT c.genero_id), u.tempo_assistindo_horas
-            FROM usuarios u LEFT JOIN historico_inicial h ON h.usuario_id=u.id
-            LEFT JOIN conteudos c ON c.id=h.conteudo_id GROUP BY u.id ORDER BY u.id''').fetchall()
-    x = [list(r)[:3] for r in linhas]
-    y = [r[3] for r in linhas]
-    resumo = {'quantidade_registros': len(linhas), 'variaveis': VARIAVEIS,
-              'disponivel': False, 'fonte': 'Fotografia fixa do histórico inicial; dados sintéticos.'}
+def obter_resumo_modelo(pontos=None):
+    pontos = carregar_observacoes() if pontos is None else pontos
+    x = [[p[v] for v in VARIAVEIS] for p in pontos]
+    y = [p['tempo_preparo'] for p in pontos]
+    resumo = {'quantidade_registros': len(pontos), 'variaveis': VARIAVEIS,
+              'disponivel': False, 'fonte': 'Fotografia fixa dos itens originais; dados sintéticos.'}
     try:
         coeficientes, r2 = ajustar_modelo(x, y)
     except ValueError as erro:
@@ -95,29 +97,62 @@ def obter_resumo_modelo(incluir_dados=False):
     resumo.update(disponivel=True, intercepto=float(coeficientes[0]),
                   coeficientes=dict(zip(VARIAVEIS, map(float, coeficientes[1:]))), r_quadrado=r2,
                   intervalos={v: [float(min(col)), float(max(col))] for v, col in zip(VARIAVEIS, zip(*x))})
-    resumo['formula'] = 'ŷ = ' + f'{coeficientes[0]:.4f}' + ''.join(
-        f' {coef:+.4f} × {nome}' for nome, coef in zip(VARIAVEIS, coeficientes[1:]))
-    if incluir_dados:
-        resumo['pontos'] = [dict(zip(VARIAVEIS + ['tempo_assistindo'], list(r))) for r in linhas]
+    resumo['formula'] = f'ŷ = {br(coeficientes[0], 4)}' + ''.join(
+        f' {"+" if coef >= 0 else "−"} {br(abs(coef), 4)} × {ROTULOS[nome]}'
+        for nome, coef in zip(VARIAVEIS, coeficientes[1:]))
     return resumo
 
 
-def prever_engajamento(tempo_plataforma, quantidade_vistos, quantidade_generos):
-    resumo = obter_resumo_modelo()
-    if not resumo['disponivel']:
-        raise ValueError(resumo['aviso'])
-    valores = [tempo_plataforma, quantidade_vistos, quantidade_generos]
-    previsao = resumo['intercepto'] + sum(resumo['coeficientes'][v] * n for v, n in zip(VARIAVEIS, valores))
-    avisos = []
-    if any(not resumo['intervalos'][v][0] <= n <= resumo['intervalos'][v][1] for v, n in zip(VARIAVEIS, valores)):
-        avisos.append('Entrada fora do intervalo observado: a previsão é uma extrapolação.')
-    if previsao < 0 or previsao > tempo_plataforma:
-        avisos.append('A estimativa linear ficou fora do intervalo físico; a exibição foi limitada entre zero e as horas na plataforma.')
-    return {'previsao_horas': max(0, min(tempo_plataforma, previsao)),
-            'previsao_bruta': previsao, 'formula': resumo['formula'], 'avisos': avisos}
+def obter_analises():
+    pontos = carregar_observacoes()
+    simples, multipla = resumo_simples(pontos), obter_resumo_modelo(pontos)
+    for p in pontos:
+        p['previsao_simples'] = simples['intercepto'] + simples['coeficiente'] * p['quantidade_itens'] if simples['disponivel'] else None
+        p['previsao_multipla'] = multipla['intercepto'] + sum(multipla['coeficientes'][v] * p[v] for v in VARIAVEIS) if multipla['disponivel'] else None
+        for nome in ('simples', 'multipla'):
+            previsto = p[f'previsao_{nome}']
+            p[f'residuo_{nome}'] = p['tempo_preparo'] - previsto if previsto is not None else None
+        # JSON estrito: valores inválidos não viram NaN/Infinity na resposta.
+        for chave, valor in p.items():
+            if isinstance(valor, float) and not np.isfinite(valor):
+                p[chave] = None
+    for nome, modelo in [('simples', simples), ('multipla', multipla)]:
+        modelo['erro_absoluto_medio'] = float(np.mean([abs(p[f'residuo_{nome}']) for p in pontos])) if modelo['disponivel'] else None
+    return {'simples': simples, 'multipla': multipla, 'observacoes': pontos}
+
+
+def prever_tempo(quantidade_itens, pedidos_na_fila, quantidade_categorias):
+    pontos = carregar_observacoes()
+    simples, multipla = resumo_simples(pontos), obter_resumo_modelo(pontos)
+    if not simples['disponivel'] and not multipla['disponivel']:
+        raise ValueError(multipla['aviso'])
+    entrada = dict(zip(VARIAVEIS, [quantidade_itens, pedidos_na_fila, quantidade_categorias]))
+    resultado = {'entrada': entrada, 'avisos': []}
+    if simples['disponivel']:
+        bruta = simples['intercepto'] + simples['coeficiente'] * quantidade_itens
+        resultado['simples'] = {'disponivel': True, 'previsao_minutos': max(0, bruta), 'previsao_bruta': bruta,
+                                'calculo': f'{br(simples["intercepto"])} + {br(simples["coeficiente"])} × {quantidade_itens} = {br(bruta, 1)} min'}
+    else:
+        resultado['simples'] = {'disponivel': False, 'aviso': simples['aviso']}
+    if multipla['disponivel']:
+        coef = multipla['coeficientes']
+        bruta = multipla['intercepto'] + sum(coef[v] * entrada[v] for v in VARIAVEIS)
+        termos = ''.join(f' {"+" if coef[v] >= 0 else "−"} {br(abs(coef[v]))} × {entrada[v]}' for v in VARIAVEIS)
+        resultado['multipla'] = {'disponivel': True, 'previsao_minutos': max(0, bruta), 'previsao_bruta': bruta,
+                                 'calculo': f'{br(multipla["intercepto"])}{termos} = {br(bruta, 1)} min'}
+        if any(not multipla['intervalos'][v][0] <= entrada[v] <= multipla['intervalos'][v][1] for v in VARIAVEIS):
+            resultado['avisos'].append('Pedido fora do intervalo observado nos dados: a estimativa é uma extrapolação.')
+    else:
+        resultado['multipla'] = {'disponivel': False, 'aviso': multipla['aviso']}
+    if any(m.get('previsao_bruta', 0) < 0 for m in (resultado['simples'], resultado['multipla'])):
+        resultado['avisos'].append('A estimativa linear ficou negativa; o valor exibido foi limitado a zero.')
+    return resultado
 
 
 if __name__ == '__main__':
     from banco import inicializar_banco
     inicializar_banco()
-    print(obter_resumo_modelo())
+    analises = obter_analises()
+    print(analises['simples']['formula'], '| R²', analises['simples']['r_quadrado'])
+    print(analises['multipla']['formula'], '| R²', analises['multipla']['r_quadrado'])
+    print('Manual × numpy.polyfit:', analises['simples']['comparacao_polyfit'])

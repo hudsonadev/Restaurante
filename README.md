@@ -1,96 +1,81 @@
-# StreamData — recomendação híbrida e regressão múltipla
+# Comanda: previsão do tempo de preparo de pedidos
 
-Aplicação didática em Flask, SQLite e NumPy. O painel Admin apresenta a visão geral de consumo e as regressões simples e múltipla. Explore os 100 perfis fictícios, 60 títulos e 10 gêneros; abra um perfil para consultar previsões, recomendações e editar seu histórico. Não há cadastro nem autenticação.
+Aplicação didática em Flask, SQLite e NumPy para um restaurante que quer prever quanto tempo cada pedido leva para ficar pronto e, assim, informar prazos melhores aos clientes. Ela recebe os dados de um pedido (pratos escolhidos e fila da cozinha), calcula o tempo estimado com duas regressões lineares e mostra o resultado com a conta feita.
 
-## Navegação
+A base tem 100 pedidos históricos fictícios, um cardápio de 60 pratos em 10 categorias e o tempo real de preparo de cada pedido. Não há cadastro nem autenticação.
 
-- `/`: indicadores globais, dispersão com reta de regressão simples e tabela pesquisável de usuários.
-- `/categorias`: ranking global de gêneros por marcações atuais.
-- `/catalogo`: títulos, gêneros e audiência, com busca e filtro.
-- `/analises`: regressões, comparação observado × previsto, métricas, simulador múltiplo e clusters.
-- `/usuarios/<id>`: dados individuais, estimativas, histórico inicial e atual, recomendações e marcação de títulos.
+## Páginas
+
+- `/`: indicadores, dispersão itens × tempo de preparo com a reta da regressão simples e tabela pesquisável de pedidos.
+- `/novo-pedido`: escolha os pratos e a fila da cozinha; a página calcula e exibe o tempo estimado pelas duas regressões.
+- `/categorias`: ranking das categorias mais pedidas.
+- `/cardapio`: pratos, categorias e em quantos pedidos cada prato aparece.
+- `/analises`: regressão simples, comparação do cálculo manual com `numpy.polyfit`, gráficos real × previsto dos dois modelos e agrupamento de categorias.
+- `/pedidos/<id>`: dados do pedido, tempo previsto no registro, estimativa para os itens atuais, sugestões de pratos e edição dos itens.
 - `/regressao`: redireciona para a regressão em Análises.
-
-Os gráficos SVG funcionam sem serviços externos. Os pontos abrem os perfis e seus valores também estão disponíveis em tabela. R² e erro absoluto médio descrevem o ajuste na própria amostra. As marcações atualizam o consumo atual, mas não retreinam as regressões baseadas nas horas originais e no histórico inicial. `GET /api/analises` expõe os dois modelos e as observações com previsões brutas e resíduos (observado menos previsto); as APIs anteriores continuam disponíveis.
-
-## Documentação
-
-Comece pelo [índice de documentação](docs/README.md). O [guia de implementação](docs/implementacao.md) explica os dados, algoritmos, API e interface. O [guia de manutenção para humanos e IA](docs/manutencao.md) reúne os pontos de alteração, invariantes e verificações.
 
 ## Executar
 
-Crie o ambiente virtual e instale as dependências na primeira execução:
+Na primeira execução, crie o ambiente virtual e instale as dependências:
 
 ```powershell
 python -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -r requirements.txt
 ```
 
-Depois, inicie a aplicação:
+Depois, inicie a aplicação e acesse http://127.0.0.1:5000:
 
 ```powershell
 .\.venv\Scripts\python.exe app.py
 ```
 
-Acesse http://127.0.0.1:5000. Em um ambiente novo, crie um virtualenv e instale `pip install -r requirements.txt` antes de iniciar.
+## Os modelos
+
+| Modelo | Fórmula | Como é calculado |
+| --- | --- | --- |
+| Regressão simples | `tempo = B0 + B1 × itens + E` | Manualmente, pelas fórmulas de mínimos quadrados (`ajustar_simples`) |
+| Regressão múltipla | `tempo = β0 + β1 × itens + β2 × fila + β3 × categorias + E` | `numpy.linalg.lstsq` (`ajustar_modelo`) |
+
+Com os dados atuais, a simples explica 45% da variação do tempo (R² = 0,447) e erra em média 5,2 min. A múltipla explica 83% (R² = 0,830) e erra em média 2,8 min, porque também considera a fila da cozinha. O cálculo manual da simples coincide com `numpy.polyfit` até a 15ª casa decimal.
+
+As explicações completas estão em [DOCUMENTACAO.md](DOCUMENTACAO.md) (funcionamento, pesos e comparação dos modelos) e [COMPARACAO_MANUAL_NUMPY.md](COMPARACAO_MANUAL_NUMPY.md) (cálculo manual × `numpy.polyfit`).
 
 ## Dados e persistência
 
-O catálogo contém 60 filmes reais selecionados da lista fornecida pelo usuário, com ano no título e um gênero principal definido para esta demonstração. Usuários e históricos continuam sintéticos. A migração 2 substitui títulos e gêneros mantendo os IDs e os dois históricos. As marcações passam a representar os novos títulos; mudanças de gênero podem alterar clusters e coeficientes da regressão.
+Todos os CSVs ficam em `dados/` e são gerados por `preparar_dados.py` com semente fixa (`20261028`), então a base é reproduzível:
 
-- `dados/dataset_streaming.csv`: IDs originais, nomes fictícios e as horas originais preservadas.
-- `dados/generos.csv` e `dados/conteudos.csv`: catálogo fixo; um gênero principal por título.
-- `dados/historico_inicial.csv`: histórico demonstrativo fixo, com sobreposição entre perfis. Usuários 20, 40, 60, 80 e 100 começam sem histórico.
-- `dados/Dataset Streaming(Planilha1).csv`: planilha original de referência, não utilizada na carga da aplicação.
+- `pedidos.csv`: ID, cliente fictício, pedidos na fila da cozinha e tempo real de preparo em minutos.
+- `categorias.csv` e `pratos.csv`: cardápio fixo, com uma categoria por prato.
+- `itens_pedido.csv`: pratos de cada pedido (de 1 a 8 por pedido).
 
-Todos os CSVs ficam em `dados/`. Os caminhos são resolvidos a partir do diretório do código, independentemente da pasta de execução. O banco `streaming.db` continua na raiz, preservando o histórico existente.
+O tempo real foi simulado como `6 + 2,2 × itens + 1,3 × fila + 0,8 × categorias`, mais um ajuste por tipo de prato (grelhados e risotos demoram mais; bebidas e sobremesas, menos) e um ruído aleatório. Os modelos não conhecem essa fórmula: eles a reconstroem a partir dos dados.
 
-A primeira inicialização cria as tabelas e copia os CSVs em uma transação. A tabela `migracoes` impede que reinicializações restaurem conteúdos desmarcados ou apaguem novas marcações. A tabela antiga `engajamento`, se existir, é preservada. O histórico inicial fica em uma tabela separada para a regressão. A aplicação também inicializa corretamente quando importada por um servidor WSGI.
-
-`preparar_dados.py` gera nomes e históricos sintéticos (semente 20261027), lendo o catálogo atual e preservando `conteudos.csv` e `generos.csv`. Não é executado pela aplicação e não altera o banco. Uma nova geração usa os gêneros atuais e pode diferir do histórico antigo. Alterações futuras nos CSVs exigem uma nova migração para atualizar bancos já carregados. Não exclua o banco se quiser preservar o histórico.
-
-## Como as recomendações funcionam
-
-1. A matriz usuário × conteúdo registra visto/não visto. Contagens por gênero formam perfis de consumo; as proporções são usadas para comparar usuários.
-2. A similaridade entre gêneros é o cosseno dos seus vetores de contagens por usuário. Distância = 1 − similaridade. Gêneros sem consumo têm similaridade zero com os demais.
-3. O agrupamento hierárquico começa com um grupo por gênero e une o par com menor distância média, até restarem três grupos. Empates seguem IDs. Os grupos auxiliam a leitura; não bloqueiam sugestões entre grupos.
-4. A afinidade de um conteúdo é a média da similaridade de seu gênero com os gêneros assistidos, ponderada pelo consumo do usuário.
-5. Os cinco usuários com maior similaridade positiva de perfil são os vizinhos. A pontuação colaborativa é a fração ponderada desses vizinhos que viu o conteúdo.
-6. O ranking combina 50% afinidade e 50% colaboração. Sem vizinhos, usa apenas afinidade. Sem histórico, usa popularidade (usuários que viram / total de usuários).
-7. Exclui vistos, desempata por popularidade e ID e retorna até dez títulos. A pontuação não é probabilidade. As explicações indicam os sinais observados.
-
-As marcações recalculam perfis, grupos e recomendações da base. Não há avaliação de satisfação: assistir é apenas um sinal implícito, e o agrupamento reflete esta amostra sintética.
-
-## Regressão linear múltipla
-
-Análise independente do recomendador: `horas assistidas = intercepto + b1 × horas na plataforma + b2 × conteúdos vistos + b3 × gêneros distintos`.
-
-Os coeficientes são ajustados por `numpy.linalg.lstsq` sobre os 100 usuários e a fotografia inicial. Alterações em `visualizacoes` não alteram esse treinamento. O resumo informa coeficientes, R² e intervalos observados. Amostras insuficientes e matrizes sem posto completo desabilitam a previsão com uma mensagem. R² é indefinido quando a variável alvo não varia.
-
-As contagens são históricas e as horas são diárias: a demonstração não assume duração por título nem que os títulos foram vistos em um único dia. As horas originais não foram produzidas pelo novo histórico; os coeficientes adicionais não garantem ganho preditivo. R² mede ajuste na própria amostra, não validação fora dela.
-
-A API devolve a estimativa bruta e uma estimativa de exibição limitada entre zero e as horas na plataforma, avisando quando há limitação ou extrapolação.
+Na primeira inicialização, `banco.py` cria `restaurante.db` e copia os CSVs em uma transação. Os itens são gravados em duas tabelas: `itens_originais`, uma fotografia fixa usada para treinar as regressões, e `itens_pedido`, que pode ser editada pela interface. Editar um pedido muda as sugestões, os totais e a estimativa para os itens atuais, mas não retreina os modelos. A tabela `migracoes` impede que reinicializações reponham itens removidos.
 
 ## API
 
 | Método e rota | Contrato |
 | --- | --- |
-| `GET /api/usuarios` | Lista de `{id, nome}` |
-| `GET /api/conteudos?usuario_id=1` | Lista com ID, título, gênero, `genero_id` e `visto` booleano |
-| `GET /api/usuarios/1/recomendacoes` | Usuário, indicador sem histórico, recomendações com pontuações/motivos e usuários semelhantes |
-| `GET /api/clusters` | Três grupos e gêneros com vizinhos ordenados por distância |
-| `PUT /api/usuarios/1/vistos/2` | JSON `{"visto": true}` ou `{"visto": false}`; idempotente |
-| `GET /api/modelo` | Disponibilidade, amostra, coeficientes, intercepto, fórmula, R² e intervalos |
-| `POST /api/prever` | JSON `{"tempo_plataforma": 4, "quantidade_vistos": 10, "quantidade_generos": 3}` |
+| `POST /api/prever` | JSON `{"pratos": [25, 26, 37], "pedidos_na_fila": 6}`; devolve `entrada`, `simples`, `multipla` (previsão em minutos, valor bruto e conta) e `avisos` |
+| `GET /api/analises` | Modelos simples e múltiplo (com `comparacao_polyfit`) e observações com previsões e resíduos |
+| `GET /api/modelo` | Resumo da regressão múltipla: coeficientes, fórmula, R² e intervalos observados |
+| `GET /api/pedidos` | Lista de `{id, cliente}` |
+| `GET /api/pratos?pedido_id=1` | Cardápio com categoria e `incluido` booleano para o pedido |
+| `GET /api/pedidos/1/sugestoes` | Sugestões de pratos com pontuações e motivos, e pedidos semelhantes |
+| `GET /api/clusters` | Três grupos de categorias e proximidades |
+| `PUT /api/pedidos/1/itens/2` | JSON `{"incluido": true}` ou `{"incluido": false}`; idempotente |
 
-Entradas inválidas retornam 400; IDs inexistentes, 404; modelo indisponível ao prever, 422. As APIs de regressão agora exigem três variáveis e substituem o contrato antigo de regressão simples.
+Entradas inválidas retornam 400; IDs inexistentes, 404; modelos indisponíveis ao prever, 422.
 
-## Validação e utilitários
+## Testes e utilitários
 
 ```powershell
-.\.venv\Scripts\python.exe -m unittest discover -s tests -v
-.\.venv\Scripts\python.exe consultar_banco.py
-.\.venv\Scripts\python.exe regressao.py
+.\.venv\Scripts\python.exe -B -m unittest discover -s tests -v
+.\.venv\Scripts\python.exe regressao.py         # fórmulas, R² e comparação com polyfit
+.\.venv\Scripts\python.exe consultar_banco.py   # pedidos, itens e tempos
+.\.venv\Scripts\python.exe preparar_dados.py    # regenera os CSVs (não altera um banco existente)
 ```
 
-Os testes usam bancos temporários e cobrem ranking, clusters, persistência, isolamento, validação da API e regressão. `popular_banco.py` e `banco.py` inicializam sem sobrescrever o histórico já salvo.
+Os testes usam bancos temporários e cobrem o cálculo manual, a comparação com `numpy.polyfit`, a previsão, a validação da API, as sugestões, os agrupamentos e a persistência.
+
+Mais detalhes em [docs/](docs/README.md).

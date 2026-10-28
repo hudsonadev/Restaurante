@@ -2,51 +2,40 @@
 
 ## Antes de alterar
 
-Leia [a implementação](implementacao.md) e confira o código atual. Esta documentação explica o projeto; não substitui requisitos novos nem instruções do usuário. Não há dependência de serviço de IA: este guia apenas facilita o trabalho de pessoas e agentes que editam o repositório.
+Leia [a implementação](implementacao.md) e confira o código atual. Esta documentação explica o projeto; não substitui requisitos novos nem instruções do usuário.
 
-Verifique `git status --short` para distinguir alterações existentes das suas. Preserve os dados e o histórico local ao realizar tarefas de código ou documentação.
+Verifique `git status --short` para distinguir alterações existentes das suas. Preserve `restaurante.db` e os itens editados ao realizar tarefas de código ou documentação.
 
 ## Onde mexer
-
-O frontend agora é organizado pelo painel Admin (`/`) e por perfis (`/usuarios/<id>`). `templates/base.html` fornece a navegação compartilhada. Scripts comuns ficam em `static/common.js`; `script.js` atende somente perfis, `analises.js` atende simulador e clusters, `graficos.js` gera SVGs e `tabelas.js` filtra dados. Ao criar uma página, carregue apenas seus scripts específicos.
-
-`regressao.obter_analises()` alimenta as páginas e `/api/analises`. Mantenha previsões brutas nos gráficos e resíduos; a limitação física pertence somente à exibição do simulador. Não confunda histórico inicial com marcações atuais. Os testes em `tests/test_admin.py` cobrem regressão simples, métricas, indisponibilidade independente, páginas e agregados após edições.
 
 | Necessidade | Local principal | Pontos relacionados |
 | --- | --- | --- |
 | Alterar leitura dos CSVs | `banco.py`, constante `DIRETORIO_DADOS` | `preparar_dados.py` usa a mesma constante |
-| Alterar tabelas ou carga | `banco.py`, `inicializar_banco()` | Preservação do histórico e tabela `migracoes` |
-| Alterar ranking ou vizinhos | `recomendacao.py`, `recomendar()` | Motivos exibidos e testes de pontuação |
-| Alterar clusters | `recomendacao.py`, `agrupar()` e `obter_clusters()` | Distâncias, desempates e interface de análises |
-| Alterar regressão | `regressao.py` | Validação em `app.py`, formulário e documentação |
-| Alterar API | `app.py` | Consumidores em `static/script.js` e testes |
-| Alterar visual e navegação | `templates/index.html`, `static/style.css`, `static/script.js` | IDs, eventos, acessibilidade e estados de carregamento |
-| Reproduzir dados demonstrativos | `preparar_dados.py` | Sobrescreve usuários e histórico em `dados/`, preservando catálogo e gêneros; não atualiza SQLite existente |
+| Alterar tabelas ou carga | `banco.py`, `inicializar_banco()` | Tabela `migracoes` e preservação dos itens |
+| Alterar a regressão simples | `regressao.py`, `ajustar_simples()` | `comparar_polyfit()`, testes em `tests/test_admin.py` e `COMPARACAO_MANUAL_NUMPY.md` |
+| Alterar variáveis da múltipla | `regressao.py`, `VARIAVEIS` e `carregar_observacoes()` | Validação em `app.py`, `prever_tempo()`, tabela `observacoes.html` e documentação |
+| Alterar o cálculo da estimativa | `regressao.py`, `prever_tempo()` | `renderEstimativa` em `static/common.js` |
+| Alterar sugestões ou vizinhos | `recomendacao.py`, `recomendar()` | Motivos exibidos e testes de pontuação |
+| Alterar agrupamentos | `recomendacao.py`, `agrupar()` e `obter_clusters()` | `static/analises.js` |
+| Alterar API | `app.py` | `static/script.js`, `static/novo_pedido.js` e testes |
+| Alterar visual | `templates/`, `static/style.css` | IDs usados pelos scripts, acessibilidade e estados de carregamento |
+| Regenerar a base | `preparar_dados.py` | Sobrescreve todos os CSVs; não atualiza um banco existente |
+
+Cada página carrega só os scripts que usa. `common.js` é carregado em todas.
 
 ## Regras que preservam o comportamento
 
-1. Não recomendar conteúdos já vistos pelo usuário selecionado.
-2. Não usar o próprio usuário como vizinho nem vizinhos de similaridade zero.
-3. Manter os desempates determinísticos. O ranking desempata por popularidade e ID; vizinhos e proximidades usam IDs.
-4. Não apresentar pontuação como probabilidade. As explicações devem corresponder ao consumo observado.
-5. Não repor o histórico inicial em cada inicialização. `visualizacoes` é editável e `historico_inicial` é a fotografia da regressão.
-6. Não usar as novas marcações para modificar silenciosamente o treinamento da regressão.
-7. Preservar `streaming.db` e a tabela legada `engajamento`. Alterações de esquema devem ter migração explícita e testes de preservação.
-8. Resolver caminhos de dados pelo diretório do código, não pelo diretório corrente do processo.
-9. Manter as marcações idempotentes e validar entradas no backend, mesmo que os controles HTML já imponham limites.
-10. Evitar que uma resposta de um perfil anterior sobrescreva a seleção atual no frontend.
-
-## Dados fixos e migrações
-
-Os arquivos em `dados/` são a fonte para criar bancos novos. O SQLite é a fonte do estado em execução. Copiar CSVs para outra pasta exigiu apenas ajustar os caminhos; não foi necessário recriar o banco.
-
-Se uma tarefa futura mudar dados fixos em uma instalação existente, não basta editar o CSV nem executar `popular_banco.py`. Planeje uma nova versão de migração que atualize as entidades necessárias e preserve os vistos. Não apague o banco ou o marcador da versão 1 para forçar uma carga: isso pode perder histórico ou colidir com IDs existentes.
-
-O gerador pressupõe a base demonstrativa original de 100 IDs e usa listas fixas para nomes e lê os títulos de `dados/conteudos.csv`. Não é um importador genérico. Executá-lo sobrescreve os CSVs de usuários e histórico com os dados gerados; preserva conteúdos e gêneros. Para experimentos, use cópias temporárias, não os arquivos do usuário.
+1. Manter `ajustar_simples` como cálculo manual (somas e médias), sem `polyfit`, `lstsq` ou outra função pronta de regressão. O NumPy entra só na validação e na conferência.
+2. Treinar as regressões com `itens_originais`, nunca com `itens_pedido`: o tempo real registrado corresponde aos itens originais.
+3. Manter previsões brutas nos gráficos e resíduos; limitar a zero só na exibição da estimativa.
+4. Não sugerir pratos já incluídos no pedido nem usar o próprio pedido como vizinho.
+5. Manter desempates determinísticos (pontuação, popularidade e ID).
+6. Não apresentar a pontuação das sugestões como probabilidade.
+7. Não repor os itens a cada inicialização. Mudanças de esquema ou de dados fixos em bancos existentes exigem uma nova versão de migração.
+8. Validar no backend, mesmo que os controles HTML já imponham limites.
+9. Descartar respostas antigas no frontend (contador `requisicao`).
 
 ## Executar e testar
-
-Comandos a partir da raiz do projeto, em PowerShell:
 
 ```powershell
 python -m venv .venv
@@ -54,55 +43,42 @@ python -m venv .venv
 .\.venv\Scripts\python.exe app.py
 ```
 
-Abra http://127.0.0.1:5000. Se o ambiente já existe e as dependências estão instaladas, basta o último comando. `.venv` e caches são ignorados pelo Git.
-
-Para os testes:
+Testes:
 
 ```powershell
 .\.venv\Scripts\python.exe -B -m unittest discover -s tests -v
-node --check static/script.js
+node --check static/novo_pedido.js
 ```
 
-O segundo comando só é necessário ao alterar JavaScript e requer Node.js instalado; Node não é requisito para executar o aplicativo. `-B` evita gerar novo bytecode nos testes.
-
-Os testes redirecionam `banco.CAMINHO_BANCO` para bancos temporários antes da criação da aplicação. Isso exercita a carga real dos CSVs sem modificar `streaming.db`.
+O segundo comando só é necessário ao alterar JavaScript e requer Node.js. Os testes redirecionam `banco.CAMINHO_BANCO` para bancos temporários, então não modificam `restaurante.db`.
 
 ### O que os testes cobrem
 
-- Tamanho do catálogo, dados e rotas principais.
-- Marcar/desmarcar repetidamente, isolamento de usuários e persistência após reinicializar.
-- Exclusão de vistos, ranking determinístico e contribuição colaborativa conhecida.
-- Usuário sem histórico, sem vizinhos, gênero sem consumo e catálogo inteiramente visto.
+- Cálculo manual com reta conhecida, alvo constante e amostras inválidas.
+- Igualdade com `numpy.polyfit` em dados conhecidos e nos dados reais.
+- Previsão aplicando os coeficientes, extrapolação e modelos indisponíveis.
+- Validação de `POST /api/prever` (lista vazia, repetida, inexistente, booleanos, fila fora da faixa).
+- Sugestões: exclusão de itens, determinismo, pedido vazio, sem vizinhos e contribuição colaborativa conhecida.
 - Cosseno, ligação média e agrupamentos com resultados conhecidos.
-- Validações da API, modelo indisponível e extrapolação.
-- Regressão com coeficientes conhecidos, alvo constante, amostra insuficiente e posto deficiente.
-- Preservação da tabela antiga de engajamento.
+- Persistência, idempotência e isolamento das edições; edições não retreinam os modelos.
+- Rotas, ranking de categorias e base vazia.
 
 ### Conferência manual da interface
 
-1. No Admin, buscar e abrir um perfil com histórico e outro sem histórico; conferir horas, estimativas e contagens iniciais/atuais.
-2. Marcar uma sugestão; confirmar que ela sai das recomendações e aparece no histórico.
-3. Desmarcar e recarregar a página; conferir a persistência da remoção.
-4. Combinar busca por título, gênero e status; limpar os filtros.
-5. Abrir explicações e pessoas semelhantes no perfil; voltar ao Admin e conferir os novos totais. Em Análises, conferir reta, comparações nas mesmas escalas, simulador e clusters.
-6. Navegar nas abas por teclado e conferir tela estreita.
-7. Consultar os pontos com mouse e teclado, abrir seus perfis e conferir os mesmos valores na tabela. Filtrar o catálogo global e validar estados sem resultados.
-
-Testes automatizados de backend não substituem inspeção visual. Ao relatar validação, diferencie testes executados, revisão estática e fluxos efetivamente verificados no navegador.
+1. Em Novo pedido, escolher pratos, informar a fila e calcular; conferir a conta de cada modelo. Testar fila acima de 12 (aviso de extrapolação) e envio sem pratos.
+2. Abrir um pedido; adicionar uma sugestão e conferir que a estimativa para os itens atuais muda e que o prato vai para Itens do pedido.
+3. Remover o prato e recarregar a página; conferir a persistência.
+4. Em Análises, conferir a reta, a tabela manual × polyfit, os gráficos real × previsto e os agrupamentos.
+5. Navegar pelas abas com o teclado e conferir uma tela estreita.
 
 ## Diagnóstico rápido
 
 | Sintoma | Verificação |
 | --- | --- |
-| CSV não encontrado | Confirmar os quatro arquivos ativos em `dados/` e o valor de `DIRETORIO_DADOS` |
-| Alterei CSV, mas a tela continua igual | Banco já inicializado não recarrega automaticamente; avaliar migração |
-| Regenerar CSVs não mudou a regressão | O ajuste lê a fotografia inicial salva no banco |
-| Nenhuma recomendação | Conferir se todo o catálogo já está marcado como visto |
-| Não há usuários semelhantes | Verificar histórico vazio ou ausência de similaridade positiva |
-| Modelo indisponível | Conferir quantidade de observações e independência das três variáveis |
+| CSV não encontrado | Confirmar os quatro arquivos em `dados/` ou rodar `preparar_dados.py` |
+| Alterei um CSV, mas a tela continua igual | Banco já inicializado não recarrega; apague `restaurante.db` só se puder perder as edições, ou crie uma migração |
+| Modelo múltiplo indisponível | Conferir se alguma variável ficou constante ou dependente das outras |
+| Estimativa com aviso de extrapolação | Itens, fila ou categorias fora do intervalo observado nos dados |
+| Nenhuma sugestão | O pedido já inclui todo o cardápio |
 | Porta 5000 ocupada | Identificar o servidor local existente antes de iniciar outro |
 | Estilo antigo no navegador | Atualizar com Ctrl + F5 |
-
-## Ao concluir uma alteração
-
-Atualize a documentação quando mudar caminhos, regras, contratos ou comandos. Rode as verificações relevantes e descreva o que foi alterado, o que foi testado e qualquer validação pendente. Não inclua ambientes virtuais ou caches nos commits.

@@ -1,8 +1,8 @@
         <section id="clusters" class="panel" aria-labelledby="clusters-titulo">
-            <h2 id="clusters-titulo">Agrupamento de gêneros</h2>
-            <p class="muted">Três grupos formados pelo consumo de todos os usuários (ligação média, distância 1 − cosseno). As recomendações não ficam restritas a um grupo.</p>
+            <h2 id="clusters-titulo">Categorias pedidas juntas</h2>
+            <p class="muted">Três grupos formados pelos itens de todos os pedidos (ligação média, distância 1 − cosseno). As sugestões de pratos não ficam restritas a um grupo.</p>
             <div id="grupos" class="cluster-grid"></div>
-            <div class="filters"><label for="genero-proximidade">Proximidade a partir de<select id="genero-proximidade"></select></label></div>
-            <p class="muted">Do mais próximo ao mais distante. Distância 0 indica consumo proporcional; 1, nenhuma similaridade observada.</p>
+            <div class="filters"><label for="categoria-proximidade">Proximidade a partir de<select id="categoria-proximidade"></select></label></div>
+            <p class="muted">Da mais próxima à mais distante. Distância 0 indica pedidos com proporções iguais; 1, nenhuma ocorrência conjunta.</p>
             <ol id="proximos" class="distances"></ol>
         </section>

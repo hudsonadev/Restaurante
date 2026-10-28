@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}Admin{% endblock %} · StreamData</title>
+    <title>{% block title %}Admin{% endblock %} · Comanda</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
     <script src="{{ url_for('static', filename='common.js') }}" defer></script>
     {% block scripts %}{% endblock %}
@@ -12,9 +12,9 @@
     <a class="skip-link" href="#inicio">Ir para o conteúdo</a>
     <header class="masthead">
         <div class="masthead-inner">
-            <a class="wordmark" href="/">StreamData</a>
+            <a class="wordmark" href="/">Comanda</a>
             <nav class="admin-nav" aria-label="Navegação administrativa">
-                {% for rota, nome in [('/', 'Visão geral'), ('/categorias', 'Categorias'), ('/catalogo', 'Catálogo'), ('/analises', 'Análises')] %}
+                {% for rota, nome in [('/', 'Visão geral'), ('/novo-pedido', 'Novo pedido'), ('/categorias', 'Categorias'), ('/cardapio', 'Cardápio'), ('/analises', 'Análises')] %}
                 <a href="{{ rota }}" {% if request.path == rota %}aria-current="page"{% endif %}>{{ nome }}</a>
                 {% endfor %}
             </nav>

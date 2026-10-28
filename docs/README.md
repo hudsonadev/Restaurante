@@ -1,36 +1,39 @@
-# Documentação do StreamData
+# Documentação do Comanda
 
-Este diretório descreve a implementação atual para quem usa, estuda ou modifica o projeto, incluindo agentes de IA.
+Este diretório descreve a implementação para quem usa, estuda ou modifica o projeto, incluindo agentes de IA.
 
 ## Roteiro de leitura
 
 1. [README principal](../README.md): instalação, execução e visão geral.
-2. [Como foi implementado](implementacao.md): arquitetura, dados, fórmulas, fluxo da interface e contratos da API.
-3. [Manutenção para humanos e IA](manutencao.md): pontos de alteração, regras que precisam ser preservadas, testes e diagnóstico.
+2. [Funcionamento, pesos e regressões](../DOCUMENTACAO.md): como a estimativa é feita e como comparar os dois modelos.
+3. [Cálculo manual × numpy.polyfit](../COMPARACAO_MANUAL_NUMPY.md): verificação da regressão manual.
+4. [Como foi implementado](implementacao.md): dados, banco, fórmulas, API e interface.
+5. [Manutenção para humanos e IA](manutencao.md): pontos de alteração, regras a preservar, testes e diagnóstico.
 
 ## Mapa do projeto
 
 ```text
 projeto/
-├── app.py                  Rotas HTTP e criação da aplicação
+├── app.py                  Rotas HTTP, validação e criação da aplicação
 ├── banco.py                SQLite, caminhos e carga inicial
-├── recomendacao.py         Similaridades, clusters e ranking
-├── regressao.py            Regressões simples/múltipla e métricas
-├── preparar_dados.py        Geração manual dos dados demonstrativos
-├── popular_banco.py         Inicialização manual opcional
-├── consultar_banco.py       Consulta de usuários e vistos no terminal
+├── regressao.py            Regressão simples manual, múltipla, polyfit e previsão
+├── recomendacao.py         Similaridades, agrupamentos e sugestões de pratos
+├── preparar_dados.py       Geração reproduzível do cardápio e dos pedidos
+├── popular_banco.py        Inicialização manual opcional
+├── consultar_banco.py      Lista pedidos, itens e tempos no terminal
 ├── requirements.txt        Dependências Python
-├── streaming.db            Estado persistente local
-├── dados/                  CSVs fixos e planilha original
+├── restaurante.db          Estado persistente local (criado na primeira execução)
+├── dados/                  CSVs da base sintética
 ├── docs/                   Estes guias
-├── templates/              Admin, análises, catálogo e perfis
+├── templates/              Admin, novo pedido, análises, cardápio e pedidos
 ├── static/style.css        Aparência e responsividade
-├── static/script.js        Interações do perfil individual
-├── static/graficos.js      Dispersão, reta e comparação em SVG
-├── static/analises.js      Simulador e agrupamentos
-├── static/common.js        Formatação e consultas HTTP
-├── static/tabelas.js       Busca e filtros globais
+├── static/common.js        Formatação, HTTP e exibição da estimativa
+├── static/novo_pedido.js   Seleção de pratos e cálculo do tempo
+├── static/script.js        Página de um pedido: itens, sugestões e estimativa
+├── static/graficos.js      Dispersão, reta e real × previsto em SVG
+├── static/analises.js      Agrupamento de categorias
+├── static/tabelas.js       Busca e filtros das tabelas
 └── tests/                  Testes do projeto e do painel Admin
 ```
 
-Os CSVs inicializam uma base nova; o SQLite guarda o estado utilizado durante a execução. A recomendação e os totais de consumo usam as marcações atuais. As regressões usam as horas originais; a múltipla também usa o histórico inicial preservado. O painel Admin reúne a visão geral, e os perfis permitem analisar e editar cada histórico individualmente.
+Os CSVs inicializam uma base nova; o SQLite guarda o estado durante a execução. As regressões usam os tempos registrados e a fotografia fixa `itens_originais`. As sugestões, os totais e a estimativa dos itens atuais usam `itens_pedido`, que pode ser editada.

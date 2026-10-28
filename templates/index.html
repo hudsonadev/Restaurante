@@ -4,9 +4,9 @@
 {% block content %}
 <header class="page-header"><h1>Visão geral</h1></header>
 <dl class="figures" aria-label="Indicadores gerais">
-    {% for chave, nome in [('usuarios','Usuários'),('conteudos','Títulos'),('generos','Gêneros'),('visualizacoes','Marcações atuais')] %}<div><dt>{{ nome }}</dt><dd>{{ indicadores[chave] }}</dd></div>{% endfor %}
-    <div><dt>Na plataforma / dia</dt><dd>{{ medias[0]|numero }} <small>h</small></dd></div>
-    <div><dt>Assistindo / dia</dt><dd>{{ medias[1]|numero }} <small>h</small></dd></div>
+    {% for chave, nome in [('pedidos','Pedidos'),('pratos','Pratos'),('categorias','Categorias'),('itens_pedido','Itens atuais')] %}<div><dt>{{ nome }}</dt><dd>{{ indicadores[chave] }}</dd></div>{% endfor %}
+    <div><dt>Fila média</dt><dd>{{ medias[0]|numero }} <small>pedidos</small></dd></div>
+    <div><dt>Preparo médio</dt><dd>{{ medias[1]|numero }} <small>min</small></dd></div>
 </dl>
 {% include "grafico_simples.html" %}
 {% include "observacoes.html" %}

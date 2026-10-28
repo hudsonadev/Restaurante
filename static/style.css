@@ -88,11 +88,39 @@ button:disabled:hover { background: transparent; color: var(--ink); }
 .text-button:hover { background: none; color: var(--ink); }
 
 .filters { display: flex; align-items: end; flex-wrap: wrap; gap: 14px; margin: 18px 0; }
-.filters label, .form-grid label { display: grid; gap: 6px; color: var(--muted); font-size: 13px; }
+.filters label { display: grid; gap: 6px; color: var(--muted); font-size: 13px; }
 .search-field { flex: 1; min-width: 220px; max-width: 420px; }
-.form-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; margin: 22px 0 18px; max-width: 760px; }
-.prediction { margin-top: 20px; }
-.prediction strong { font: 32px var(--serif); font-variant-numeric: lining-nums; }
+.field { display: grid; gap: 6px; color: var(--muted); font-size: 13px; }
+
+/* Novo pedido */
+.order-layout { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 40px; align-items: start; }
+.order-layout > .panel { border-bottom: 0; }
+.menu-list { columns: 2; column-gap: 32px; }
+.menu-list fieldset { break-inside: avoid; margin: 0 0 18px; padding: 0; border: 0; }
+.menu-list legend { padding: 0 0 4px; font: 17px var(--serif); }
+.menu-item { display: flex; align-items: center; gap: 10px; padding: 6px 0; border-bottom: 1px solid var(--rule); cursor: pointer; }
+.menu-item:hover { background: var(--hover); }
+.menu-item input { width: 18px; height: 18px; min-height: 0; margin: 0; accent-color: var(--accent); }
+.order-summary { position: sticky; top: 16px; margin-top: 32px; padding: 20px; background: var(--sheet); border: 1px solid var(--rule); border-top: 3px solid var(--ink); }
+.summary-counts { display: flex; gap: 32px; margin: 18px 0 8px; }
+.summary-counts dt { color: var(--muted); font-size: 13px; }
+.summary-counts dd { margin: 0; font: 26px var(--serif); font-variant-numeric: lining-nums; }
+.summary-list { margin: 0 0 16px; padding-left: 18px; font-size: 14px; max-height: 180px; overflow-y: auto; }
+.summary-list .muted { list-style: none; margin-left: -18px; }
+.summary-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+.summary-actions .primary { flex: 1; }
+#resultado:not(:empty) { margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--rule); }
+
+/* Estimativa */
+.estimate { margin: 0 0 12px; }
+.estimate strong { display: block; font: 40px/1.1 var(--serif); font-variant-numeric: lining-nums; color: var(--accent); }
+.estimate span { color: var(--muted); font-size: 14px; }
+.estimate-detail { display: grid; gap: 10px; margin: 0; }
+.estimate-detail dt { color: var(--muted); font-size: 13px; }
+.estimate-detail dd { margin: 0; }
+.estimate-detail strong { font: 18px var(--serif); }
+.estimate-detail code { display: block; margin-top: 2px; font: 12.5px/1.5 var(--mono); color: var(--muted); overflow-wrap: anywhere; }
+#estimativa-atual .estimate-detail { grid-template-columns: repeat(2, minmax(0, 1fr)); max-width: 760px; }
 
 /* Tabelas */
 .table-scroll { overflow-x: auto; margin-top: 8px; }
@@ -148,7 +176,7 @@ table small { color: var(--muted); font-size: 12px; }
 .bar { height: 3px; margin: 4px 0 8px; background: var(--hover); }
 .bar span { display: block; height: 100%; background: var(--data); }
 
-/* Perfil: abas */
+/* Pedido: abas */
 .tabs { display: flex; gap: 28px; margin-top: 8px; border-bottom: 1px solid var(--rule-strong); overflow-x: auto; }
 .tabs button { min-height: 0; padding: 14px 0 10px; border: 0; border-bottom: 2px solid transparent; border-radius: 0; background: none; color: var(--muted); white-space: nowrap; }
 .tabs button:hover { background: none; color: var(--ink); }
@@ -161,7 +189,7 @@ table small { color: var(--muted); font-size: 12px; }
 #recomendacoes-nota { margin: 0 0 18px; }
 #status { min-height: 18px; margin: 10px 0 0; color: var(--muted); font-size: 13px; }
 
-/* Perfil: títulos */
+/* Pedido: pratos */
 .cards { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; }
 .card { display: flex; flex-direction: column; background: var(--sheet); border: 1px solid var(--rule); border-top: 3px solid hsl(var(--hue) 28% 48%); }
 .card-art { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; padding: 12px 16px 0; }
@@ -197,6 +225,7 @@ table small { color: var(--muted); font-size: 12px; }
     .cards { grid-template-columns: repeat(3, minmax(0, 1fr)); }
     .figures { grid-template-columns: repeat(3, minmax(0, 1fr)); row-gap: 18px; }
     .figures div:nth-child(4) { padding-left: 0; border-left: 0; }
+    .menu-list { columns: 1; }
 }
 @media (max-width: 720px) {
     .masthead-inner { flex-direction: column; align-items: stretch; gap: 0; }
@@ -207,7 +236,9 @@ table small { color: var(--muted); font-size: 12px; }
     .figures div { padding: 0 14px; }
     .figures div:nth-child(odd) { padding-left: 0; border-left: 0; }
     .figures div:nth-child(4) { padding-left: 14px; border-left: 1px solid var(--rule); }
-    .comparison-grid, .cluster-grid, .form-grid { grid-template-columns: 1fr; }
+    .comparison-grid, .cluster-grid, .order-layout, #estimativa-atual .estimate-detail { grid-template-columns: 1fr; }
+    .menu-list { columns: 1; }
+    .order-summary { position: static; margin-top: 0; }
     .comparison-grid > article + article { border-left: 0; padding-left: 0; margin-top: 28px; padding-top: 24px; border-top: 1px solid var(--rule); }
     .cluster + .cluster { padding-left: 0; border-left: 0; border-top: 1px solid var(--rule); }
     .distances { grid-template-columns: repeat(2, minmax(0, 1fr)); }

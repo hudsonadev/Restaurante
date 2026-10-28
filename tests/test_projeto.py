@@ -1,5 +1,4 @@
 import importlib
-import sqlite3
 import tempfile
 import unittest
 from pathlib import Path
@@ -22,34 +21,34 @@ class ProjetoTest(unittest.TestCase):
         self.app.testing = True
         self.client = self.app.test_client()
 
-    def marcar(self, uid, cid, visto):
-        return self.client.put(f'/api/usuarios/{uid}/vistos/{cid}', json={'visto': visto})
+    def alterar(self, pedido, prato, incluido):
+        return self.client.put(f'/api/pedidos/{pedido}/itens/{prato}', json={'incluido': incluido})
 
     def test_base_e_rotas(self):
-        self.assertEqual(len(self.client.get('/api/usuarios').json), 100)
-        catalogo = self.client.get('/api/conteudos?usuario_id=1').json
-        self.assertEqual(len(catalogo), 60)
-        self.assertEqual(len({c['genero_id'] for c in catalogo}), 10)
-        self.assertIsInstance(catalogo[0]['visto'], bool)
+        self.assertEqual(len(self.client.get('/api/pedidos').json), 100)
+        cardapio = self.client.get('/api/pratos?pedido_id=1').json
+        self.assertEqual(len(cardapio), 60)
+        self.assertEqual(len({p['categoria_id'] for p in cardapio}), 10)
+        self.assertIsInstance(cardapio[0]['incluido'], bool)
         self.assertEqual(self.client.get('/').status_code, 200)
-        with self.client.get('/static/script.js') as resposta:
+        with self.client.get('/static/novo_pedido.js') as resposta:
             self.assertEqual(resposta.status_code, 200)
         grupos = self.client.get('/api/clusters').json
         self.assertEqual(len(grupos['grupos']), 3)
-        self.assertEqual(sum(len(g['generos']) for g in grupos['grupos']), 10)
-        for g in grupos['generos']:
-            self.assertEqual(len(g['proximos']), 9)
-            self.assertEqual(g['proximos'], sorted(g['proximos'], key=lambda x:(x['distancia'], x['id'])))
+        self.assertEqual(sum(len(g['categorias']) for g in grupos['grupos']), 10)
+        for c in grupos['categorias']:
+            self.assertEqual(len(c['proximos']), 9)
+            self.assertEqual(c['proximos'], sorted(c['proximos'], key=lambda x: (x['distancia'], x['id'])))
 
     def test_ranking_categorias_e_estado_vazio(self):
         with banco.conectar() as db:
-            db.execute('DELETE FROM visualizacoes')
+            db.execute('DELETE FROM itens_pedido')
         resposta = self.client.get('/categorias')
         self.assertEqual(resposta.status_code, 200)
-        self.assertIn('Ainda não há conteúdos', resposta.get_data(as_text=True))
+        self.assertIn('Ainda não há pratos', resposta.get_data(as_text=True))
         with banco.conectar() as db:
-            ids = [r[0] for r in db.execute('SELECT id FROM conteudos ORDER BY genero_id,id')]
-            db.executemany('INSERT INTO visualizacoes VALUES (?,?)', [(1,ids[0]), (2,ids[0]), (1,ids[-1])])
+            ids = [r[0] for r in db.execute('SELECT id FROM pratos ORDER BY categoria_id,id')]
+            db.executemany('INSERT INTO itens_pedido VALUES (?,?)', [(1, ids[0]), (2, ids[0]), (1, ids[-1])])
         from flask import template_rendered
         contextos = []
         def capturar(sender, template, context, **extra):
@@ -62,148 +61,140 @@ class ProjetoTest(unittest.TestCase):
         self.assertEqual([c['quantidade'] for c in contexto['categorias']], [2, 1] + [0] * 8)
         self.assertAlmostEqual(contexto['categorias'][0]['percentual'], 200 / 3)
         self.assertEqual(contexto['categorias'][1]['largura'], 50)
-        self.marcar(2, ids[0], False)
-        self.assertIn('2 marcações', self.client.get('/categorias').get_data(as_text=True))
+        self.alterar(2, ids[0], False)
+        self.assertIn('2 itens', self.client.get('/categorias').get_data(as_text=True))
 
     def test_persistencia_idempotencia_e_isolamento(self):
-        antes_outro = self.client.get('/api/conteudos?usuario_id=2').json
-        catalogo = self.client.get('/api/conteudos?usuario_id=1').json
-        visto = next(c['id'] for c in catalogo if c['visto'])
-        novo = next(c['id'] for c in catalogo if not c['visto'])
+        antes_outro = self.client.get('/api/pratos?pedido_id=2').json
+        cardapio = self.client.get('/api/pratos?pedido_id=1').json
+        incluido = next(p['id'] for p in cardapio if p['incluido'])
+        novo = next(p['id'] for p in cardapio if not p['incluido'])
         modelo = obter_resumo_modelo()
         for _ in range(2):
-            self.assertEqual(self.marcar(1, visto, False).status_code, 200)
-            self.assertEqual(self.marcar(1, novo, True).status_code, 200)
+            self.assertEqual(self.alterar(1, incluido, False).status_code, 200)
+            self.assertEqual(self.alterar(1, novo, True).status_code, 200)
         banco.inicializar_banco()
         novo_client = self.app.test_client()
-        depois = {c['id']:c['visto'] for c in novo_client.get('/api/conteudos?usuario_id=1').json}
-        self.assertFalse(depois[visto])
+        depois = {p['id']: p['incluido'] for p in novo_client.get('/api/pratos?pedido_id=1').json}
+        self.assertFalse(depois[incluido])
         self.assertTrue(depois[novo])
-        self.assertEqual(antes_outro, novo_client.get('/api/conteudos?usuario_id=2').json)
+        self.assertEqual(antes_outro, novo_client.get('/api/pratos?pedido_id=2').json)
         self.assertEqual(modelo, obter_resumo_modelo())
 
-    def test_recomendacoes_excluem_vistos_e_sao_deterministicas(self):
-        vistos = {c['id'] for c in self.client.get('/api/conteudos?usuario_id=1').json if c['visto']}
+    def test_sugestoes_excluem_itens_e_sao_deterministicas(self):
+        incluidos = {p['id'] for p in self.client.get('/api/pratos?pedido_id=1').json if p['incluido']}
         r = recomendar(1)
         self.assertEqual(r, recomendar(1))
-        self.assertEqual(len(r['recomendacoes']), 10)
-        self.assertFalse(vistos.intersection(c['id'] for c in r['recomendacoes']))
-        self.assertLessEqual(len(r['usuarios_semelhantes']), 5)
-        self.assertNotIn(1, [u['id'] for u in r['usuarios_semelhantes']])
-        for c in r['recomendacoes']:
-            self.assertAlmostEqual(c['pontuacao'], (c['afinidade_genero'] + c['pontuacao_colaborativa']) / 2)
-        primeiro = r['recomendacoes'][0]['id']
-        self.marcar(1, primeiro, True)
-        self.assertNotIn(primeiro, [c['id'] for c in recomendar(1)['recomendacoes']])
+        self.assertEqual(len(r['sugestoes']), 10)
+        self.assertFalse(incluidos.intersection(p['id'] for p in r['sugestoes']))
+        self.assertLessEqual(len(r['pedidos_semelhantes']), 5)
+        self.assertNotIn(1, [p['id'] for p in r['pedidos_semelhantes']])
+        for p in r['sugestoes']:
+            self.assertAlmostEqual(p['pontuacao'], (p['afinidade_categoria'] + p['pontuacao_colaborativa']) / 2)
+        primeiro = r['sugestoes'][0]['id']
+        self.alterar(1, primeiro, True)
+        self.assertNotIn(primeiro, [p['id'] for p in recomendar(1)['sugestoes']])
 
-    def test_sem_historico_e_tudo_visto(self):
+    def test_pedido_vazio_e_cardapio_completo(self):
+        with banco.conectar() as db:
+            db.execute('DELETE FROM itens_pedido WHERE pedido_id=20')
+            populares = [r[0] for r in db.execute('''SELECT p.id FROM pratos p
+                LEFT JOIN itens_pedido i ON p.id=i.prato_id GROUP BY p.id
+                ORDER BY COUNT(i.pedido_id) DESC,p.id LIMIT 10''')]
         r = recomendar(20)
-        self.assertTrue(r['sem_historico'])
-        self.assertEqual(r['usuarios_semelhantes'], [])
+        self.assertTrue(r['pedido_vazio'])
+        self.assertEqual(r['pedidos_semelhantes'], [])
+        self.assertEqual(populares, [p['id'] for p in r['sugestoes']])
         with banco.conectar() as db:
-            populares = [r[0] for r in db.execute('''SELECT c.id FROM conteudos c
-                LEFT JOIN visualizacoes v ON c.id=v.conteudo_id GROUP BY c.id
-                ORDER BY COUNT(v.usuario_id) DESC,c.id LIMIT 10''')]
-            db.execute('INSERT INTO visualizacoes SELECT 20,id FROM conteudos')
-        self.assertEqual(populares, [c['id'] for c in r['recomendacoes']])
-        self.assertEqual(recomendar(20)['recomendacoes'], [])
+            db.execute('INSERT INTO itens_pedido SELECT 20,id FROM pratos')
+        self.assertEqual(recomendar(20)['sugestoes'], [])
 
-    def test_sem_vizinhos_e_sem_consumo(self):
+    def test_sem_vizinhos_e_categoria_sem_pedidos(self):
         with banco.conectar() as db:
-            db.execute('DELETE FROM visualizacoes')
-            db.execute('INSERT INTO visualizacoes VALUES (1,1)')
+            db.execute('DELETE FROM itens_pedido')
+            db.execute('INSERT INTO itens_pedido VALUES (1,1)')
         r = recomendar(1)
-        self.assertEqual(r['usuarios_semelhantes'], [])
-        self.assertEqual(r['recomendacoes'][0]['id'], 2)
-        for c in r['recomendacoes']:
-            self.assertAlmostEqual(c['pontuacao'], c['afinidade_genero'])
+        self.assertEqual(r['pedidos_semelhantes'], [])
+        self.assertEqual(r['sugestoes'][0]['id'], 2)
+        for p in r['sugestoes']:
+            self.assertAlmostEqual(p['pontuacao'], p['afinidade_categoria'])
         grupos = obter_clusters()
-        sem_consumo = next(g for g in grupos['generos'] if g['id'] == 2)
-        self.assertTrue(all(g['distancia'] == 1 for g in sem_consumo['proximos']))
+        sem_pedidos = next(c for c in grupos['categorias'] if c['id'] == 2)
+        self.assertTrue(all(c['distancia'] == 1 for c in sem_pedidos['proximos']))
 
     def test_colaboracao_com_resultado_conhecido(self):
         with banco.conectar() as db:
-            db.execute('DELETE FROM visualizacoes')
-            db.executemany('INSERT INTO visualizacoes VALUES (?,?)', [(1,1),(2,1),(2,3),(3,1),(3,3)])
+            db.execute('DELETE FROM itens_pedido')
+            db.executemany('INSERT INTO itens_pedido VALUES (?,?)', [(1, 1), (2, 1), (2, 3), (3, 1), (3, 3)])
         r = recomendar(1)
-        self.assertEqual(r['recomendacoes'][0]['id'], 3)
-        self.assertAlmostEqual(r['recomendacoes'][0]['pontuacao_colaborativa'], 1)
-        self.assertIn('Bruno Almeida', ' '.join(r['recomendacoes'][0]['motivos']))
+        self.assertEqual(r['sugestoes'][0]['id'], 3)
+        self.assertAlmostEqual(r['sugestoes'][0]['pontuacao_colaborativa'], 1)
+        self.assertIn('#2 Bruno Almeida', ' '.join(r['sugestoes'][0]['motivos']))
 
     def test_validacao_api(self):
-        for url, status in [('/api/conteudos',400),('/api/conteudos?usuario_id=x',400),
-                            ('/api/conteudos?usuario_id=999',404),('/api/usuarios/999/recomendacoes',404)]:
+        for url, status in [('/api/pratos', 400), ('/api/pratos?pedido_id=x', 400),
+                            ('/api/pratos?pedido_id=999', 404), ('/api/pedidos/999/sugestoes', 404)]:
             self.assertEqual(self.client.get(url).status_code, status)
-        for dados in [{}, [], {'visto':1}, {'visto':'true'}, None]:
-            self.assertEqual(self.client.put('/api/usuarios/1/vistos/1', json=dados).status_code,400)
-        self.assertEqual(self.marcar(999,1,True).status_code,404)
-        self.assertEqual(self.marcar(1,999,True).status_code,404)
-        valido = dict(tempo_plataforma=4, quantidade_vistos=10, quantidade_generos=3)
-        self.assertEqual(self.client.post('/api/prever',json=valido).status_code,200)
-        for chave, valor in [('tempo_plataforma',float('nan')),('tempo_plataforma',float('inf')),
-                             ('tempo_plataforma',True),('tempo_plataforma',0),('tempo_plataforma',25),
-                             ('quantidade_vistos',1.5),('quantidade_vistos',61),('quantidade_generos',11),
-                             ('quantidade_generos',0),('quantidade_generos',-1)]:
-            self.assertEqual(self.client.post('/api/prever',json={**valido,chave:valor}).status_code,400)
+        for dados in [{}, [], {'incluido': 1}, {'incluido': 'true'}, None]:
+            self.assertEqual(self.client.put('/api/pedidos/1/itens/1', json=dados).status_code, 400)
+        self.assertEqual(self.alterar(999, 1, True).status_code, 404)
+        self.assertEqual(self.alterar(1, 999, True).status_code, 404)
+        valido = {'pratos': [1, 8], 'pedidos_na_fila': 3}
+        self.assertEqual(self.client.post('/api/prever', json=valido).status_code, 200)
+        self.assertEqual(self.client.post('/api/prever', json={**valido, 'pedidos_na_fila': '3'}).status_code, 200)
+        for chave, valor in [('pratos', []), ('pratos', [1, 1]), ('pratos', [999]), ('pratos', [True]),
+                             ('pratos', [1.5]), ('pratos', 'x'), ('pratos', None),
+                             ('pedidos_na_fila', -1), ('pedidos_na_fila', 51), ('pedidos_na_fila', 1.5),
+                             ('pedidos_na_fila', True), ('pedidos_na_fila', float('nan')), ('pedidos_na_fila', None)]:
+            with self.subTest(chave=chave, valor=valor):
+                self.assertEqual(self.client.post('/api/prever', json={**valido, chave: valor}).status_code, 400)
         for dados in [[], {}, None]:
-            self.assertEqual(self.client.post('/api/prever',json=dados).status_code,400)
+            self.assertEqual(self.client.post('/api/prever', json=dados).status_code, 400)
+
+    def test_previsao_aplica_os_coeficientes(self):
+        r = self.client.post('/api/prever', json={'pratos': [1, 2, 25], 'pedidos_na_fila': 4}).json
+        self.assertEqual(r['entrada'], {'quantidade_itens': 3, 'pedidos_na_fila': 4, 'quantidade_categorias': 2})
+        modelo = obter_resumo_modelo()
+        esperado = modelo['intercepto'] + sum(modelo['coeficientes'][v] * n for v, n in r['entrada'].items())
+        self.assertAlmostEqual(r['multipla']['previsao_bruta'], esperado)
+        self.assertAlmostEqual(r['multipla']['previsao_minutos'], max(0, esperado))
+        self.assertTrue(r['simples']['disponivel'])
+        self.assertEqual(r['avisos'], [])
 
     def test_modelo_indisponivel_e_extrapolacao(self):
-        r = self.client.post('/api/prever', json=dict(tempo_plataforma=24, quantidade_vistos=60, quantidade_generos=10))
-        self.assertEqual(r.status_code,200)
+        r = self.client.post('/api/prever', json={'pratos': list(range(1, 61)), 'pedidos_na_fila': 50})
+        self.assertEqual(r.status_code, 200)
         self.assertTrue(r.json['avisos'])
         with banco.conectar() as db:
-            db.execute('DELETE FROM historico_inicial')
+            db.execute('DELETE FROM itens_originais')
         self.assertFalse(self.client.get('/api/modelo').json['disponivel'])
-        self.assertEqual(self.client.post('/api/prever',json=dict(tempo_plataforma=4,quantidade_vistos=0,quantidade_generos=0)).status_code,422)
-
-    def test_migracao_preserva_engajamento(self):
-        with banco.conectar() as db:
-            db.execute('CREATE TABLE engajamento (usuario_id INTEGER PRIMARY KEY, valor REAL)')
-            db.execute('INSERT INTO engajamento VALUES (1,4.5)')
-        banco.inicializar_banco()
-        with banco.conectar() as db:
-            self.assertEqual(tuple(db.execute('SELECT * FROM engajamento').fetchone()), (1,4.5))
-
-    def test_migracao_catalogo_preserva_historicos(self):
-        self.marcar(20, 1, True)
-        with banco.conectar() as db:
-            antes = [tuple(r) for r in db.execute('SELECT * FROM visualizacoes ORDER BY 1,2')]
-            inicial = [tuple(r) for r in db.execute('SELECT * FROM historico_inicial ORDER BY 1,2')]
-            db.execute('DELETE FROM migracoes WHERE versao=2')
-            db.execute("UPDATE conteudos SET titulo='Título antigo', genero_id=10 WHERE id=1")
-        banco.inicializar_banco()
-        banco.inicializar_banco()
-        with banco.conectar() as db:
-            self.assertEqual(tuple(db.execute('SELECT titulo,genero_id FROM conteudos WHERE id=1').fetchone()), ('Matrix (1999)',1))
-            self.assertEqual(antes, [tuple(r) for r in db.execute('SELECT * FROM visualizacoes ORDER BY 1,2')])
-            self.assertEqual(inicial, [tuple(r) for r in db.execute('SELECT * FROM historico_inicial ORDER BY 1,2')])
+        self.assertEqual(self.client.post('/api/prever', json={'pratos': [1], 'pedidos_na_fila': 4}).status_code, 422)
 
 
 class MatematicaTest(unittest.TestCase):
     def test_cosseno_e_clusters_conhecidos(self):
-        vetores = [[1,0,0], [2,0,0], [0,1,0], [0,2,0], [0,0,1], [0,0,2]]
+        vetores = [[1, 0, 0], [2, 0, 0], [0, 1, 0], [0, 2, 0], [0, 0, 1], [0, 0, 2]]
         sim = cosseno(vetores)
-        self.assertAlmostEqual(sim[0,1],1)
-        self.assertAlmostEqual(sim[0,2],0)
-        self.assertEqual(agrupar(1-sim, [1,2,3,4,5,6]), [[1,2],[3,4],[5,6]])
-        self.assertTrue(np.isfinite(cosseno([[0,0],[1,0]])).all())
+        self.assertAlmostEqual(sim[0, 1], 1)
+        self.assertAlmostEqual(sim[0, 2], 0)
+        self.assertEqual(agrupar(1 - sim, [1, 2, 3, 4, 5, 6]), [[1, 2], [3, 4], [5, 6]])
+        self.assertTrue(np.isfinite(cosseno([[0, 0], [1, 0]])).all())
 
     def test_ligacao_media(self):
-        d = np.array([[0,.1,.2,.9],[.1,0,.8,.9],[.2,.8,0,.4],[.9,.9,.4,0]])
-        self.assertEqual(agrupar(d,[1,2,3,4],2), [[1,2],[3,4]])
+        d = np.array([[0, .1, .2, .9], [.1, 0, .8, .9], [.2, .8, 0, .4], [.9, .9, .4, 0]])
+        self.assertEqual(agrupar(d, [1, 2, 3, 4], 2), [[1, 2], [3, 4]])
 
     def test_regressao_conhecida(self):
-        x = np.array([[1,0,0],[2,1,0],[3,0,1],[4,2,3],[2,3,1]])
-        y = 2 + x @ np.array([3,4,5])
-        coef, r2 = ajustar_modelo(x,y)
-        np.testing.assert_allclose(coef,[2,3,4,5])
-        self.assertAlmostEqual(r2,1)
-        self.assertIsNone(ajustar_modelo(x,np.ones(5))[1])
+        x = np.array([[1, 0, 0], [2, 1, 0], [3, 0, 1], [4, 2, 3], [2, 3, 1]])
+        y = 2 + x @ np.array([3, 4, 5])
+        coef, r2 = ajustar_modelo(x, y)
+        np.testing.assert_allclose(coef, [2, 3, 4, 5])
+        self.assertAlmostEqual(r2, 1)
+        self.assertIsNone(ajustar_modelo(x, np.ones(5))[1])
         with self.assertRaises(ValueError):
-            ajustar_modelo([[1,1,1]]*5,[1]*5)
+            ajustar_modelo([[1, 1, 1]] * 5, [1] * 5)
         with self.assertRaises(ValueError):
-            ajustar_modelo([[1,2,3]],[1])
+            ajustar_modelo([[1, 2, 3]], [1])
 
 
 if __name__ == '__main__':

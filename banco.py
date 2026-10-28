@@ -1,12 +1,11 @@
-"""Carga transacional dos dados fixos; histórico editável nunca é reposto."""
+"""Carga transacional dos dados fixos; itens editáveis nunca são repostos."""
 import csv
 import sqlite3
 from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent
 DIRETORIO_DADOS = BASE_DIR / 'dados'
-CAMINHO_BANCO = BASE_DIR / 'streaming.db'
-CAMINHO_DATASET = DIRETORIO_DADOS / 'dataset_streaming.csv'
+CAMINHO_BANCO = BASE_DIR / 'restaurante.db'
 
 
 def ler_csv(nome):
@@ -32,53 +31,39 @@ def conectar():
 def inicializar_banco():
     with conectar() as db:
         db.executescript('''
-            CREATE TABLE IF NOT EXISTS usuarios (
+            CREATE TABLE IF NOT EXISTS pedidos (
+                id INTEGER PRIMARY KEY, cliente TEXT NOT NULL,
+                pedidos_na_fila INTEGER NOT NULL,
+                tempo_preparo_min REAL NOT NULL);
+            CREATE TABLE IF NOT EXISTS categorias (id INTEGER PRIMARY KEY, nome TEXT NOT NULL);
+            CREATE TABLE IF NOT EXISTS pratos (
                 id INTEGER PRIMARY KEY, nome TEXT NOT NULL,
-                tempo_plataforma_horas REAL NOT NULL,
-                tempo_assistindo_horas REAL NOT NULL);
-            CREATE TABLE IF NOT EXISTS generos (id INTEGER PRIMARY KEY, nome TEXT NOT NULL);
-            CREATE TABLE IF NOT EXISTS conteudos (
-                id INTEGER PRIMARY KEY, titulo TEXT NOT NULL,
-                genero_id INTEGER NOT NULL REFERENCES generos(id));
-            CREATE TABLE IF NOT EXISTS visualizacoes (
-                usuario_id INTEGER REFERENCES usuarios(id),
-                conteudo_id INTEGER REFERENCES conteudos(id),
-                PRIMARY KEY (usuario_id, conteudo_id));
-            CREATE TABLE IF NOT EXISTS historico_inicial (
-                usuario_id INTEGER REFERENCES usuarios(id),
-                conteudo_id INTEGER REFERENCES conteudos(id),
-                PRIMARY KEY (usuario_id, conteudo_id));
+                categoria_id INTEGER NOT NULL REFERENCES categorias(id));
+            CREATE TABLE IF NOT EXISTS itens_pedido (
+                pedido_id INTEGER REFERENCES pedidos(id),
+                prato_id INTEGER REFERENCES pratos(id),
+                PRIMARY KEY (pedido_id, prato_id));
+            CREATE TABLE IF NOT EXISTS itens_originais (
+                pedido_id INTEGER REFERENCES pedidos(id),
+                prato_id INTEGER REFERENCES pratos(id),
+                PRIMARY KEY (pedido_id, prato_id));
             CREATE TABLE IF NOT EXISTS migracoes (versao INTEGER PRIMARY KEY);
         ''')
         db.execute('BEGIN IMMEDIATE')
         if not db.execute('SELECT 1 FROM migracoes WHERE versao=1').fetchone():
-            db.executemany('INSERT INTO usuarios VALUES (?,?,?,?)', [
-                (int(r['usuario_id']), r['nome'], float(r['tempo_plataforma_horas']),
-                 float(r['tempo_assistindo_horas'])) for r in ler_csv('dataset_streaming.csv')])
-            db.executemany('INSERT INTO generos VALUES (?,?)', [
-                (int(r['genero_id']), r['nome']) for r in ler_csv('generos.csv')])
-            db.executemany('INSERT INTO conteudos VALUES (?,?,?)', [
-                (int(r['conteudo_id']), r['titulo'], int(r['genero_id']))
-                for r in ler_csv('conteudos.csv')])
-            historico = [(int(r['usuario_id']), int(r['conteudo_id']))
-                         for r in ler_csv('historico_inicial.csv')]
-            db.executemany('INSERT INTO historico_inicial VALUES (?,?)', historico)
-            db.executemany('INSERT INTO visualizacoes VALUES (?,?)', historico)
+            db.executemany('INSERT INTO pedidos VALUES (?,?,?,?)', [
+                (int(r['pedido_id']), r['cliente'], int(r['pedidos_na_fila']),
+                 float(r['tempo_preparo_min'])) for r in ler_csv('pedidos.csv')])
+            db.executemany('INSERT INTO categorias VALUES (?,?)', [
+                (int(r['categoria_id']), r['nome']) for r in ler_csv('categorias.csv')])
+            db.executemany('INSERT INTO pratos VALUES (?,?,?)', [
+                (int(r['prato_id']), r['nome'], int(r['categoria_id'])) for r in ler_csv('pratos.csv')])
+            itens = [(int(r['pedido_id']), int(r['prato_id'])) for r in ler_csv('itens_pedido.csv')]
+            db.executemany('INSERT INTO itens_originais VALUES (?,?)', itens)
+            db.executemany('INSERT INTO itens_pedido VALUES (?,?)', itens)
             db.execute('INSERT INTO migracoes VALUES (1)')
-        if not db.execute('SELECT 1 FROM migracoes WHERE versao=2').fetchone():
-            # Troca o catálogo demonstrativo, preservando usuários e ambos os históricos.
-            catalogo = [(r['titulo'], int(r['genero_id']), int(r['conteudo_id']))
-                        for r in ler_csv('conteudos.csv')]
-            ids_atuais = {r[0] for r in db.execute('SELECT id FROM conteudos')}
-            if len(catalogo) != len(ids_atuais) or {r[2] for r in catalogo} != ids_atuais:
-                raise ValueError('A migração do catálogo exige os mesmos IDs existentes.')
-            db.executemany('UPDATE conteudos SET titulo=?, genero_id=? WHERE id=?', catalogo)
-            db.execute('INSERT INTO migracoes VALUES (2)')
-        return db.execute('SELECT COUNT(*) FROM usuarios').fetchone()[0]
+        return db.execute('SELECT COUNT(*) FROM pedidos').fetchone()[0]
 
-
-criar_banco = inicializar_banco
-carregar_dataset = inicializar_banco
 
 if __name__ == '__main__':
-    print(f'{inicializar_banco()} usuários disponíveis. Histórico preservado.')
+    print(f'{inicializar_banco()} pedidos disponíveis. Itens editados preservados.')
