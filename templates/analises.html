@@ -6,14 +6,16 @@
 {% set comparacao = analises.simples.comparacao_polyfit %}
 <section class="panel" id="polyfit" aria-labelledby="polyfit-titulo"><h2 id="polyfit-titulo">Cálculo manual × numpy.polyfit</h2>
 {% if comparacao %}
-<p class="muted">Os mesmos 100 pedidos ajustados de duas formas: pelas fórmulas B1 = Σ(xi − x̄)(yi − ȳ) / Σ(xi − x̄)² e B0 = ȳ − B1·x̄, em Python puro, e por <code>numpy.polyfit(x, y, 1)</code>.</p>
-<div class="table-scroll"><table><caption>Coeficientes da regressão simples</caption>
-    <thead><tr><th scope="col">Coeficiente</th><th scope="col">Manual</th><th scope="col">numpy.polyfit</th><th scope="col">Diferença absoluta</th></tr></thead>
+<p class="muted">A mesma reta (X = tempo dos pratos, Y = tempo de preparo) ajustada aos 100 pedidos de duas formas: pelas fórmulas B1 = Σ(xi − x̄)(yi − ȳ) / Σ(xi − x̄)² e B0 = ȳ − B1·x̄, em Python puro, sem bibliotecas, e por <code>numpy.polyfit(x, y, 1)</code>.</p>
+<div class="table-scroll"><table><caption>Coeficientes e ajuste da regressão simples</caption>
+    <thead><tr><th scope="col">Medida</th><th scope="col">Manual (Python puro)</th><th scope="col">numpy.polyfit</th><th scope="col">Diferença absoluta</th></tr></thead>
     <tbody>
         <tr><th scope="row">B0 (intercepto)</th><td>{{ comparacao.manual.intercepto|numero(12) }}</td><td>{{ comparacao.polyfit.intercepto|numero(12) }}</td><td>{{ comparacao.diferenca_intercepto|cientifico }}</td></tr>
         <tr><th scope="row">B1 (coeficiente angular)</th><td>{{ comparacao.manual.coeficiente|numero(12) }}</td><td>{{ comparacao.polyfit.coeficiente|numero(12) }}</td><td>{{ comparacao.diferenca_coeficiente|cientifico }}</td></tr>
+        <tr><th scope="row">R²</th><td>{{ comparacao.manual.r_quadrado|numero(12) }}</td><td>{{ comparacao.polyfit.r_quadrado|numero(12) }}</td><td>{{ comparacao.diferenca_r_quadrado|cientifico }}</td></tr>
+        <tr><th scope="row">Maior diferença entre previsões</th><td colspan="2">—</td><td>{{ comparacao.diferenca_previsao_maxima|cientifico }} min</td></tr>
     </tbody></table></div>
-<p class="note">As diferenças estão no limite de precisão do ponto flutuante (cerca de 10⁻¹⁵): os dois métodos chegam à mesma reta. O polyfit resolve o problema como álgebra matricial; o cálculo manual aplica as fórmulas diretamente.</p>
+<p class="note">Interpretação: os dois métodos minimizam a mesma soma dos erros ao quadrado, por isso chegam à mesma reta. As diferenças vêm só do arredondamento do ponto flutuante (float64, cerca de 16 dígitos) e não têm efeito prático. O cálculo manual mostra cada passo da fórmula; o polyfit resolve o problema como álgebra matricial e generaliza para mais variáveis, como na regressão múltipla.</p>
 {% else %}<p class="empty">{{ analises.simples.aviso }}</p>{% endif %}
 </section>
 <section class="panel" aria-labelledby="comparacao-titulo"><h2 id="comparacao-titulo">Real × previsto</h2><p class="muted">Os dois gráficos usam a mesma escala. Pontos sobre a diagonal são previsões exatas. Métricas calculadas na amostra de treinamento.</p>

@@ -1,6 +1,6 @@
 <section class="panel" id="regressao" aria-labelledby="titulo-regressao">
-    <h2 id="titulo-regressao">Regressão simples: itens × tempo de preparo</h2>
-    <p class="muted">Cada ponto é um pedido; a linha é a reta Y = B0 + B1·X ajustada manualmente por mínimos quadrados. Pontos com o mesmo número de itens foram afastados levemente na horizontal para não se sobreporem. Clique em um ponto para abrir o pedido.</p>
+    <h2 id="titulo-regressao">Regressão simples: tempo dos pratos × tempo de preparo</h2>
+    <p class="muted">Cada ponto é um pedido. No eixo X está o tempo dos pratos (soma dos tempos individuais dos pratos do pedido); no eixo Y, o tempo real de preparo. A linha é a reta Y = B0 + B1·X ajustada manualmente por mínimos quadrados. Clique em um ponto para abrir o pedido.</p>
     {% set modelo = analises.simples %}
     {% if modelo.disponivel %}
     <div class="metrics"><span>Amostra <strong>{{ modelo.quantidade_registros }}</strong></span><span>R² <strong>{{ modelo.r_quadrado|numero(3) }}</strong></span><span>Erro absoluto médio <strong>{{ modelo.erro_absoluto_medio|numero(2) }} min</strong></span></div>
@@ -8,5 +8,5 @@
     <div data-chart="simples" class="chart-container"></div>
     <p class="chart-legend"><span class="legend-dot"></span> Pedidos <span class="legend-line"></span> Reta ajustada</p>
     {% else %}<p class="empty">{{ modelo.aviso }}</p>{% endif %}
-    <p class="note">Ajuste medido na própria amostra, sem validação em pedidos novos. Usa os itens originais de cada pedido, que não mudam com as edições.</p>
+    <p class="note">B1 menor que 1 mostra que a cozinha trabalha em paralelo: cada minuto a mais de pratos aumenta o tempo do pedido em bem menos de um minuto. Ajuste medido na própria amostra, sem validação em pedidos novos. Usa os itens originais de cada pedido, que não mudam com as edições.</p>
 </section>

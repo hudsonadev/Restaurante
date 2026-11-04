@@ -34,7 +34,7 @@ def criar_app():
 
     @app.template_filter('cientifico')
     def cientifico(valor):
-        return f'{valor:.1e}'.replace('.', ',')
+        return 'Indefinido' if valor is None else f'{valor:.1e}'.replace('.', ',')
 
     @app.get('/')
     def pagina_inicial():
@@ -158,14 +158,19 @@ def criar_app():
                 total = db.execute('SELECT COUNT(*) FROM pratos').fetchone()[0]
                 if len(ids) > total or len(set(ids)) != len(ids):
                     raise ValueError()
-                encontrados = db.execute(f'SELECT categoria_id FROM pratos WHERE id IN ({",".join("?" * len(ids))})',
+                encontrados = db.execute(f'SELECT categoria_id, tempo_prato_min FROM pratos WHERE id IN ({",".join("?" * len(ids))})',
                                          ids).fetchall()
             if len(encontrados) != len(ids):
                 raise ValueError()
         except (TypeError, ValueError, OverflowError):
             return jsonify(erro=f'Escolha ao menos um prato do cardápio, sem repetir, e informe a fila como inteiro entre 0 e {LIMITE_FILA}.'), 400
+        # Tempo base = soma dos tempos individuais dos pratos escolhidos (X da regressão simples).
+        tempo_base = sum(r['tempo_prato_min'] for r in encontrados)
+        categorias = len({r['categoria_id'] for r in encontrados})
         try:
-            return jsonify(prever_tempo(len(ids), fila, len({r['categoria_id'] for r in encontrados})))
+            resultado = prever_tempo(tempo_base, fila, categorias)
+            resultado['quantidade_itens'] = len(ids)
+            return jsonify(resultado)
         except ValueError as erro:
             return jsonify(erro=str(erro)), 422
 

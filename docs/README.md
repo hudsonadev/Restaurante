@@ -4,11 +4,12 @@ Este diretório descreve a implementação para quem usa, estuda ou modifica o p
 
 ## Roteiro de leitura
 
-1. [README principal](../README.md): instalação, execução e visão geral.
-2. [Funcionamento, pesos e regressões](../DOCUMENTACAO.md): como a estimativa é feita e como comparar os dois modelos.
-3. [Cálculo manual × numpy.polyfit](../COMPARACAO_MANUAL_NUMPY.md): verificação da regressão manual.
-4. [Como foi implementado](implementacao.md): dados, banco, fórmulas, API e interface.
-5. [Manutenção para humanos e IA](manutencao.md): pontos de alteração, regras a preservar, testes e diagnóstico.
+1. [Guia didático](../GUIA_DIDATICO.md): o caso explicado passo a passo, com dados, regressão manual, comparação com o NumPy, interpretação e página web.
+2. [README principal](../README.md): instalação, execução e visão geral.
+3. [Funcionamento, pesos e regressões](../DOCUMENTACAO.md): como a estimativa é feita e como comparar os dois modelos.
+4. [Cálculo manual × numpy.polyfit](../COMPARACAO_MANUAL_NUMPY.md): verificação da regressão manual.
+5. [Como foi implementado](implementacao.md): dados, banco, fórmulas, API e interface.
+6. [Manutenção para humanos e IA](manutencao.md): pontos de alteração, regras a preservar, testes e diagnóstico.
 
 ## Mapa do projeto
 
@@ -16,9 +17,9 @@ Este diretório descreve a implementação para quem usa, estuda ou modifica o p
 projeto/
 ├── app.py                  Rotas HTTP, validação e criação da aplicação
 ├── banco.py                SQLite, caminhos e carga inicial
-├── regressao.py            Regressão simples manual, múltipla, polyfit e previsão
+├── regressao.py            Regressão simples manual (Python puro), polyfit, múltipla e previsão
 ├── recomendacao.py         Similaridades, agrupamentos e sugestões de pratos
-├── preparar_dados.py       Geração reproduzível do cardápio e dos pedidos
+├── preparar_dados.py       Cardápio com tempo de cada prato e pedidos (cozinha em paralelo)
 ├── popular_banco.py        Inicialização manual opcional
 ├── consultar_banco.py      Lista pedidos, itens e tempos no terminal
 ├── requirements.txt        Dependências Python

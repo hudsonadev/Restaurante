@@ -28,7 +28,7 @@ document.querySelector('.tabs').addEventListener('keydown', event => {
 function card(item, ranking) {
     return `<article class="card ${item.incluido ? 'is-watched' : ''}" style="--hue:${(item.categoria_id * 33 + 70) % 360}">
         <div class="card-art"><span class="tag">${escapeHtml(item.categoria)}</span>${ranking ? `<span class="rank">${ranking}</span>` : ''}</div>
-        <div class="card-body"><h3>${escapeHtml(item.nome)}</h3>
+        <div class="card-body"><h3>${escapeHtml(item.nome)}</h3><p class="muted">${fmt(item.tempo_prato_min, 1)} min de preparo</p>
         ${item.motivos ? `<details class="reason"><summary>Por que foi sugerido</summary><p>${item.motivos.map(escapeHtml).join(' ')}</p><small>Pontuação ${fmt(item.pontuacao)} (ordenação, não probabilidade).</small></details>` : `<p class="watch-state">${item.incluido ? 'No pedido' : 'Fora do pedido'}</p>`}
         <button type="button" ${carregando || salvando ? 'disabled' : ''} data-prato="${item.id}" data-incluir="${!item.incluido}" aria-label="${item.incluido ? 'Remover' : 'Adicionar ao pedido'}: ${escapeHtml(item.nome)}">${item.incluido ? 'Remover' : 'Adicionar ao pedido'}</button></div></article>`;
 }
@@ -55,6 +55,7 @@ function renderCardapio() {
     const incluidos = cardapio.filter(p => p.incluido);
     $('#total-itens').textContent = incluidos.length;
     $('#atual-itens').textContent = incluidos.length;
+    $('#atual-tempo-base').textContent = fmt(incluidos.reduce((soma, p) => soma + p.tempo_prato_min, 0), 1);
     $('#itens').innerHTML = incluidos.map(p => card(p)).join('') || '<p class="empty">Pedido sem itens. Adicione pratos pelo cardápio.</p>';
 }
 
@@ -83,6 +84,7 @@ async function carregarPedido() {
         cardapio = [];
         $('#total-itens').textContent = '0';
         $('#atual-itens').textContent = '—';
+    $('#atual-tempo-base').textContent = '—';
         $('#total-resultados').textContent = '';
         ['#sugestoes', '#lista-cardapio', '#itens', '#vizinhos', '#estimativa-atual'].forEach(s => $(s).replaceChildren());
         $('#erro').textContent = erro.message;

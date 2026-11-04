@@ -62,6 +62,22 @@ def inicializar_banco():
             db.executemany('INSERT INTO itens_originais VALUES (?,?)', itens)
             db.executemany('INSERT INTO itens_pedido VALUES (?,?)', itens)
             db.execute('INSERT INTO migracoes VALUES (1)')
+        if not db.execute('SELECT 1 FROM migracoes WHERE versao=2').fetchone():
+            # Tempo individual de cada prato e tempo real dos pedidos gerado a partir dele.
+            # Os itens originais não mudam; itens_pedido (editável) não é tocada.
+            colunas = {r['name'] for r in db.execute('PRAGMA table_info(pratos)')}
+            if 'tempo_prato_min' not in colunas:
+                db.execute('ALTER TABLE pratos ADD COLUMN tempo_prato_min REAL NOT NULL DEFAULT 0')
+            pratos = [(float(r['tempo_prato_min']), int(r['prato_id'])) for r in ler_csv('pratos.csv')]
+            if {r[1] for r in pratos} != {r[0] for r in db.execute('SELECT id FROM pratos')}:
+                raise ValueError('A migração dos tempos exige os mesmos IDs de pratos.')
+            originais = {tuple(r) for r in db.execute('SELECT pedido_id, prato_id FROM itens_originais')}
+            if originais and originais != {(int(r['pedido_id']), int(r['prato_id'])) for r in ler_csv('itens_pedido.csv')}:
+                raise ValueError('Os itens originais diferem dos CSVs: os tempos novos não corresponderiam a eles.')
+            db.executemany('UPDATE pratos SET tempo_prato_min=? WHERE id=?', pratos)
+            db.executemany('UPDATE pedidos SET tempo_preparo_min=? WHERE id=?', [
+                (float(r['tempo_preparo_min']), int(r['pedido_id'])) for r in ler_csv('pedidos.csv')])
+            db.execute('INSERT INTO migracoes VALUES (2)')
         return db.execute('SELECT COUNT(*) FROM pedidos').fetchone()[0]
 
 

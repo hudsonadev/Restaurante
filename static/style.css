@@ -102,7 +102,8 @@ button:disabled:hover { background: transparent; color: var(--ink); }
 .menu-item:hover { background: var(--hover); }
 .menu-item input { width: 18px; height: 18px; min-height: 0; margin: 0; accent-color: var(--accent); }
 .order-summary { position: sticky; top: 16px; margin-top: 32px; padding: 20px; background: var(--sheet); border: 1px solid var(--rule); border-top: 3px solid var(--ink); }
-.summary-counts { display: flex; gap: 32px; margin: 18px 0 8px; }
+.summary-counts { display: flex; flex-wrap: wrap; gap: 12px 32px; margin: 18px 0 8px; }
+.menu-item small { margin-left: auto; font-variant-numeric: tabular-nums; }
 .summary-counts dt { color: var(--muted); font-size: 13px; }
 .summary-counts dd { margin: 0; font: 26px var(--serif); font-variant-numeric: lining-nums; }
 .summary-list { margin: 0 0 16px; padding-left: 18px; font-size: 14px; max-height: 180px; overflow-y: auto; }

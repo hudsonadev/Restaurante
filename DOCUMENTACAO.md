@@ -28,24 +28,52 @@ flowchart LR
 
 1. Na página **Novo pedido**, o atendente marca os pratos e informa quantos pedidos já estão na fila da cozinha.
 2. O navegador envia `{"pratos": [...], "pedidos_na_fila": n}` para `POST /api/prever`.
-3. O servidor confere se os pratos existem e calcula as três variáveis: **quantidade de itens**, **fila** e **quantidade de categorias distintas**.
+3. O servidor confere se os pratos existem, busca o **tempo individual de preparo** de cada um e calcula as variáveis: **tempo dos pratos** (soma desses tempos), **fila** e **quantidade de categorias distintas**.
 4. As duas regressões aplicam seus coeficientes a essas variáveis.
-5. A página mostra o tempo estimado pela regressão múltipla em destaque e, abaixo, a conta feita por cada modelo, por exemplo `6,33 + 2,05 × 3 + 1,26 × 6 + 1,15 × 2 = 22,3 min`.
+5. A página mostra o tempo estimado pela regressão múltipla em destaque e, abaixo, a conta feita por cada modelo. Para Espaguete à bolonhesa (12 min), Lasanha à bolonhesa (18 min) e Picanha grelhada (20 min) com 6 pedidos na fila, por exemplo, aparece `9,02 + 0,45 × 50,0 + 1,32 × 6 + 0,24 × 2 = 39,7 min`. A previsão da simples também é conferida com `numpy.polyfit`, e a diferença aparece na tela.
 
-Se o pedido sair da faixa observada nos dados (por exemplo, fila de 30 quando o máximo registrado é 12), a página avisa que a estimativa é uma extrapolação.
+Se o pedido sair da faixa observada nos dados (por exemplo, fila de 30 quando o máximo registrado é 12, ou mais de 145 min de pratos), a página avisa que a estimativa é uma extrapolação.
 
 ### Dados
 
 | Tabela | Conteúdo | Muda pela interface? |
 | --- | --- | --- |
 | `pedidos` | Cliente, pedidos na fila e tempo real de preparo (min) | Não |
-| `categorias`, `pratos` | Cardápio: 10 categorias, 60 pratos | Não |
+| `categorias`, `pratos` | Cardápio: 10 categorias, 60 pratos, cada um com seu tempo de preparo (`tempo_prato_min`) | Não |
 | `itens_originais` | Pratos de cada pedido no registro; treina as regressões | Não: fotografia fixa |
 | `itens_pedido` | Pratos atuais de cada pedido; alimentam as sugestões e os totais | Sim: adicionar ou remover pratos |
 
 Editar os itens de um pedido muda as sugestões e a estimativa para a composição atual, mas **não retreina** as regressões: o tempo real registrado corresponde aos itens originais.
 
-Os 100 pedidos são sintéticos. O tempo real foi simulado como `6 + 2,2 × itens + 1,3 × fila + 0,8 × categorias`, mais um ajuste por tipo de prato (grelhados e risotos mais lentos; bebidas e sobremesas mais rápidas) e um ruído aleatório. Os modelos não conhecem essa fórmula.
+### Tempo de cada prato
+
+Cada prato tem um tempo individual de preparo, definido pela complexidade:
+
+| Categoria | Faixa (min) | Exemplos |
+| --- | --- | --- |
+| Bebidas | 1–4 | Refrigerante 1, Café expresso 2, Limonada suíça 4 |
+| Sobremesas | 2–7 | Pudim 2, Brownie com sorvete 5, Petit gâteau 7 |
+| Saladas | 4–7 | Salada verde 4, Caesar 6, Quinoa 7 |
+| Sopas | 6–9 | Sopa de legumes 6, Caldo verde 8, Canja 9 |
+| Entradas | 6–11 | Carpaccio 6, Bolinho de bacalhau 10, Croquete de costela 11 |
+| Lanches | 6–11 | Misto quente 6, X-burger 10, Hambúrguer vegetariano 11 |
+| Porções | 9–15 | Calabresa acebolada 9, Batata frita 10, Frango a passarinho 15 |
+| Massas | 11–18 | Penne ao pesto 11, Espaguete 12, Lasanha 18 |
+| Grelhados | 14–22 | Linguiça 14, Picanha 20, Costela suína 22 |
+| Risotos | 19–22 | Limão-siciliano 19, Cogumelos 20, Camarão 22 |
+
+A lista completa está em `dados/pratos.csv`, no `/cardapio` e ao lado de cada prato no Novo pedido.
+
+### Como o tempo real foi gerado
+
+Os 100 pedidos são sintéticos ([preparar_dados.py](preparar_dados.py)). Uma cozinha prepara os pratos **em paralelo**: o prato mais demorado define a base, e cada prato a mais acrescenta só uma parte do próprio tempo.
+
+```text
+cozinha    = maior tempo + 0,35 × (soma dos tempos − maior tempo)
+tempo real = 3 + cozinha + 1,3 × fila + 0,8 × categorias + ruído (desvio-padrão de 2,2 min)
+```
+
+Os modelos não conhecem essa regra. A regressão usa a **soma** dos tempos, que é só uma aproximação do paralelismo; essa é a parte que ela não consegue explicar.
 
 ## 2. Pesos das sugestões de pratos
 
@@ -108,9 +136,9 @@ Y = B0 + B1·X + E
 | Símbolo | Significado no projeto |
 | --- | --- |
 | Y | Variável dependente: tempo de preparo do pedido, em minutos |
-| X | Variável independente: quantidade de itens (pratos) no pedido |
-| B0 | Intercepto: tempo previsto para um pedido sem itens, que funciona como um tempo fixo de preparo |
-| B1 | Coeficiente angular: minutos a mais por item adicionado |
+| X | Variável independente: **tempo dos pratos**, a soma dos tempos individuais dos pratos do pedido (`tempo_base_itens`), em minutos |
+| B0 | Intercepto: tempo fixo de um pedido (recepção, montagem, entrega e, na simples, a fila média) |
+| B1 | Coeficiente angular: minutos a mais no pedido para cada minuto de prato acrescentado |
 | E | Erro (resíduo): diferença entre o tempo real e o previsto |
 
 ### 3.2 Cálculo manual
@@ -126,25 +154,27 @@ Ei = yi − ŷi
 R² = 1 − ΣEi² / Σ(yi − ȳ)²
 ```
 
-A soma dos erros é sempre zero. O ajuste exige pelo menos 2 pedidos e variação na quantidade de itens; se todos tivessem o mesmo número de itens, o denominador de B1 seria zero.
+A soma dos erros é sempre zero. O ajuste exige pelo menos 2 pedidos e variação no tempo dos pratos; se todos os pedidos tivessem o mesmo tempo de pratos, o denominador de B1 seria zero.
 
-O resultado é conferido contra `numpy.polyfit(x, y, 1)`: os coeficientes coincidem até a 15ª casa decimal. A comparação completa está em [COMPARACAO_MANUAL_NUMPY.md](COMPARACAO_MANUAL_NUMPY.md) e aparece na página Análises.
+A função usa só Python puro (listas, `sum`, laços), sem NumPy. O resultado é conferido contra `numpy.polyfit(x, y, 1)`: os coeficientes coincidem até a 15ª casa decimal, e o R² é idêntico. A comparação completa está em [COMPARACAO_MANUAL_NUMPY.md](COMPARACAO_MANUAL_NUMPY.md) e aparece na página Análises.
+
+**Por que o tempo dos pratos, e não a quantidade de itens?** Contar itens trata 1 água com gás (1 min) igual a 1 risoto de camarão (22 min). Somar os tempos individuais dá a cada prato o peso que ele tem na cozinha. Com os mesmos dados, a simples com X = itens explica só 35% da variação (R² = 0,345); com X = tempo dos pratos, explica 84%.
 
 ### 3.3 Resultado atual
 
 ```text
-ŷ = 14,92 + 2,45 × itens
+ŷ = 17,66 + 0,437 × tempo dos pratos
 ```
 
-- **B1 = 2,45:** cada prato a mais acrescenta, em média, cerca de 2 min 30 s ao preparo.
-- **B0 = 14,92:** mesmo um pedido pequeno leva cerca de 15 min. Esse valor absorve tudo o que a simples não enxerga, principalmente a fila da cozinha.
-- **R² = 0,447:** a quantidade de itens explica só 45% da variação do tempo.
+- **B1 = 0,437:** cada minuto de prato acrescenta, em média, só 26 segundos ao pedido. B1 bem menor que 1 é a **marca do paralelismo**: a cozinha prepara vários pratos ao mesmo tempo, então o pedido não leva a soma dos tempos.
+- **B0 = 17,66:** tempo fixo de um pedido. Ele absorve o que a simples não enxerga, principalmente a fila média da cozinha (6 pedidos).
+- **R² = 0,843:** o tempo dos pratos explica 84% da variação do tempo de preparo.
 
-Exemplo: o pedido #1 (Ana Almeida) tem 1 item, fila de 9 e levou 23,4 min.
+Exemplo: o pedido #1 (Ana Almeida) tem 1 prato, Creme de cebola (7 min), com fila de 9, e levou 25,2 min.
 
 ```text
-ŷ = 14,92 + 2,45 × 1 = 17,4 min
-E = 23,4 − 17,4 = 6,0 min   → demorou 6 minutos a mais que o previsto
+ŷ = 17,66 + 0,437 × 7 = 20,7 min
+E = 25,2 − 20,7 = 4,5 min   → demorou 4,5 minutos a mais que o previsto
 ```
 
 A simples não sabe que havia 9 pedidos na frente, por isso subestimou o tempo.
@@ -154,38 +184,52 @@ A simples não sabe que havia 9 pedidos na frente, por isso subestimou o tempo.
 ### 4.1 Modelo
 
 ```text
-Y = β0 + β1·itens + β2·fila + β3·categorias + E
+Y = β0 + β1·tempo dos pratos + β2·fila + β3·categorias + E
 ```
 
 | Variável | Origem |
 | --- | --- |
 | Y | Tempo de preparo em minutos (mesmo alvo da simples) |
-| itens | Quantidade de pratos no pedido (mesmo X da simples) |
+| tempo dos pratos | Soma dos tempos individuais dos pratos (mesmo X da simples) |
 | fila | Pedidos já na fila da cozinha quando o pedido chegou |
 | categorias | Categorias distintas no pedido (por exemplo, massa + bebida = 2) |
 
+A quantidade de itens saiu do modelo: ela anda junto com o tempo dos pratos (correlação de 0,66), e mantê-la deixaria seu coeficiente negativo e sem interpretação.
+
 ### 4.2 Cálculo
 
-A função `ajustar_modelo` monta a matriz `[1, itens, fila, categorias]` e resolve os mínimos quadrados com `numpy.linalg.lstsq`, usando o mesmo critério da simples (minimizar ΣE²), agora em quatro dimensões. O ajuste exige pelo menos 4 pedidos e variáveis linearmente independentes.
+A função `ajustar_modelo` monta a matriz `[1, tempo dos pratos, fila, categorias]` e resolve os mínimos quadrados com `numpy.linalg.lstsq`, usando o mesmo critério da simples (minimizar ΣE²), agora em quatro dimensões. O ajuste exige pelo menos 4 pedidos e variáveis linearmente independentes.
 
 ### 4.3 Resultado atual
 
 ```text
-ŷ = 6,33 + 2,05 × itens + 1,26 × fila + 1,15 × categorias
+ŷ = 9,02 + 0,447 × tempo dos pratos + 1,32 × fila + 0,24 × categorias
 ```
 
-Como ler os pesos (β):
+Como ler os pesos (β). Cada um vale com as outras variáveis fixas:
 
-- **β1 = 2,05:** cada item acrescenta cerca de 2 min, com fila e categorias fixas. É menor que o B1 da simples porque parte do efeito que a simples atribuía aos itens pertence às categorias.
-- **β2 = 1,26:** cada pedido na fila acrescenta cerca de 1 min 15 s. É a variável que mais melhora a previsão.
-- **β3 = 1,15:** cada categoria diferente acrescenta cerca de 1 min, o custo de coordenar estações diferentes da cozinha (chapa, forno, bar).
-- **β0 = 6,33:** tempo fixo de um pedido, agora sem o efeito da fila embutido.
+- **β1 = 0,447:** cada minuto de prato acrescenta cerca de 27 segundos ao pedido, quase o mesmo que na simples. O tempo dos pratos não dependia da fila, então separar os efeitos quase não mudou esse coeficiente.
+- **β2 = 1,32:** cada pedido na fila acrescenta cerca de 1 min 20 s. É a variável que a simples não tinha.
+- **β3 = 0,24:** cada categoria diferente acrescenta cerca de 15 segundos, um efeito pequeno.
+- **β0 = 9,02:** tempo fixo de um pedido, agora sem o efeito da fila embutido.
 
-Os coeficientes ficaram próximos dos valores usados para gerar os dados (2,2, 1,3 e 0,8). A diferença vem do ruído e dos ajustes por tipo de prato, que o modelo não conhece.
+O β2 ficou próximo do valor usado para gerar os dados (1,3). O β1 de 0,447 resume a regra de paralelismo (maior prato + 35% do resto) numa única reta.
 
-Exemplo, o mesmo pedido #1: `6,33 + 2,05 × 1 + 1,26 × 9 + 1,15 × 1 = 20,9 min`. O resíduo cai de 6,0 para 2,5 min.
+Exemplo, o mesmo pedido #1: `9,02 + 0,447 × 7 + 1,32 × 9 + 0,24 × 1 = 24,2 min`. O resíduo cai de 4,5 para 1,0 min.
 
-A previsão é limitada a zero na exibição. Fora da faixa observada (1 a 8 itens, fila de 0 a 12, 1 a 5 categorias), a página avisa que é uma extrapolação.
+A previsão é limitada a zero na exibição. Fora da faixa observada (2 a 145 min de pratos, fila de 0 a 12, 1 a 5 categorias), a página avisa que é uma extrapolação.
+
+### 4.4 Limite do modelo linear: o paralelismo
+
+A soma dos tempos é só uma aproximação de como a cozinha trabalha. Veja o pedido #12: 8 pratos que somam 72 min, mas o maior deles leva só 13 min (Fettuccine Alfredo).
+
+```text
+Real:      37,0 min   (pratos rápidos feitos em paralelo)
+Simples:   49,1 min   → erro de −12,1 min
+Múltipla:  43,7 min   → erro de −6,7 min
+```
+
+Muitos pratos rápidos somam bastante, mas ficam prontos quase juntos, então o modelo superestima esse tipo de pedido. Para capturar isso, seria preciso uma variável como "maior tempo entre os pratos". Essa é uma melhoria possível, mas sai da regressão simples pedida.
 
 ## 5. Como comparar as duas regressões
 
@@ -195,22 +239,34 @@ Os dois modelos usam **os mesmos 100 pedidos e o mesmo Y**, então as métricas 
 
 | Métrica | O que mede | Simples | Múltipla | Melhor |
 | --- | --- | --- | --- | --- |
-| R² | Fração da variação do tempo explicada | 0,447 | 0,830 | Múltipla |
-| R² ajustado* | R² penalizado pelo número de variáveis | 0,441 | 0,825 | Múltipla |
-| Erro absoluto médio (EAM) | Erro típico, em minutos | 5,23 | 2,78 | Múltipla |
-| Raiz do erro quadrático médio* | Erro típico, penalizando erros grandes | 6,19 | 3,43 | Múltipla |
-| Maior erro absoluto* | Pior previsão individual | 15,3 min | 10,5 min | Múltipla |
+| R² | Fração da variação do tempo explicada | 0,843 | 0,960 | Múltipla |
+| R² ajustado* | R² penalizado pelo número de variáveis | 0,841 | 0,959 | Múltipla |
+| Erro absoluto médio (EAM) | Erro típico, em minutos | 5,12 | 2,46 | Múltipla |
+| Raiz do erro quadrático médio* | Erro típico, penalizando erros grandes | 6,12 | 3,07 | Múltipla |
+| Maior erro absoluto* | Pior previsão individual | 13,7 min | 7,0 min | Múltipla |
 
 \* Não aparecem na interface; foram calculadas a partir dos resíduos de `GET /api/analises`. As fórmulas estão na seção 5.3.
 
+**Antes e depois do tempo dos pratos**, com os mesmos 100 pedidos:
+
+| Modelo | Variáveis | R² |
+| --- | --- | --- |
+| Simples (versão anterior) | itens | 0,345 |
+| Simples (atual) | tempo dos pratos | **0,843** |
+| Múltipla (versão anterior) | itens, fila, categorias | 0,429 |
+| Múltipla (atual) | tempo dos pratos, fila, categorias | **0,960** |
+
+Com o tempo real gerado a partir do tempo de cada prato, contar itens deixou de bastar: a nova simples, com uma única variável, já supera a múltipla antiga com três.
+
 ### 5.2 Interpretação
 
-1. **A múltipla é claramente melhor.** O R² sobe de 0,45 para 0,83, e o erro médio cai quase pela metade, de 5,2 para 2,8 min.
-2. **A melhora é real, não um efeito de ter mais variáveis.** O R² sempre aumenta ao acrescentar variáveis, mas o R² ajustado, que penaliza cada variável extra, também sobe muito (0,44 → 0,83).
-3. **A fila da cozinha é o fator que faltava.** O mesmo pedido pode levar 10 ou 30 minutos dependendo de quantos pedidos estão na frente, e a simples não tem essa informação.
-4. **Na prática, para o atendimento:** com a simples, um prazo informado ao cliente erraria, em média, 5 minutos; com a múltipla, menos de 3.
+1. **O tempo dos pratos é a variável principal.** Sozinho, ele explica 84% da variação, contra 35% da quantidade de itens.
+2. **A múltipla é claramente melhor.** O R² sobe de 0,84 para 0,96, e o erro médio cai pela metade, de 5,1 para 2,5 min.
+3. **A melhora é real, não um efeito de ter mais variáveis.** O R² sempre aumenta ao acrescentar variáveis, mas o R² ajustado, que penaliza cada variável extra, também sobe (0,841 → 0,959).
+4. **A fila da cozinha é o fator que faltava à simples.** O mesmo pedido pode levar 10 minutos a mais ou a menos dependendo de quantos pedidos estão na frente.
+5. **Na prática, para o atendimento:** com a simples, um prazo informado ao cliente erraria, em média, 5 minutos; com a múltipla, cerca de 2,5.
 
-**Conclusão:** para estimar o tempo de preparo, o restaurante deve usar a regressão múltipla. A simples continua útil como explicação didática do método e mostra que os itens sozinhos não bastam.
+**Conclusão:** para estimar o tempo de preparo, o restaurante deve usar a regressão múltipla. A simples continua útil como explicação didática do método e mostra que o tempo dos pratos, e não a quantidade, é o que mais pesa. Lembre que os tempos foram gerados por uma regra sintética (seção 1); com dados reais, os coeficientes precisariam ser medidos de novo.
 
 ### 5.3 Fórmulas usadas na comparação
 

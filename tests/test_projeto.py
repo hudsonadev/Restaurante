@@ -1,4 +1,5 @@
 import importlib
+import sqlite3
 import tempfile
 import unittest
 from pathlib import Path
@@ -7,7 +8,7 @@ from unittest.mock import patch
 import numpy as np
 import banco
 from recomendacao import agrupar, cosseno, obter_clusters, recomendar
-from regressao import ajustar_modelo, obter_resumo_modelo
+from regressao import ajustar_modelo, obter_analises, obter_resumo_modelo
 
 
 class ProjetoTest(unittest.TestCase):
@@ -153,13 +154,51 @@ class ProjetoTest(unittest.TestCase):
 
     def test_previsao_aplica_os_coeficientes(self):
         r = self.client.post('/api/prever', json={'pratos': [1, 2, 25], 'pedidos_na_fila': 4}).json
-        self.assertEqual(r['entrada'], {'quantidade_itens': 3, 'pedidos_na_fila': 4, 'quantidade_categorias': 2})
+        with banco.conectar() as db:
+            tempo_base = db.execute('SELECT SUM(tempo_prato_min) FROM pratos WHERE id IN (1, 2, 25)').fetchone()[0]
+        self.assertEqual(r['entrada'], {'tempo_base_itens': tempo_base, 'pedidos_na_fila': 4, 'quantidade_categorias': 2})
+        self.assertEqual(r['quantidade_itens'], 3)
         modelo = obter_resumo_modelo()
         esperado = modelo['intercepto'] + sum(modelo['coeficientes'][v] * n for v, n in r['entrada'].items())
         self.assertAlmostEqual(r['multipla']['previsao_bruta'], esperado)
         self.assertAlmostEqual(r['multipla']['previsao_minutos'], max(0, esperado))
-        self.assertTrue(r['simples']['disponivel'])
+        simples = obter_analises()['simples']
+        self.assertAlmostEqual(r['simples']['previsao_bruta'], simples['intercepto'] + simples['coeficiente'] * tempo_base)
+        self.assertAlmostEqual(r['simples']['previsao_bruta'], r['simples']['previsao_polyfit'])
+        self.assertLess(r['simples']['diferenca_polyfit'], 1e-9)
         self.assertEqual(r['avisos'], [])
+
+    def test_migracao_2_atualiza_banco_antigo(self):
+        caminho = Path(self.tmp.name) / 'antigo.db'
+        with sqlite3.connect(caminho) as db:
+            db.executescript('''
+                CREATE TABLE pedidos (id INTEGER PRIMARY KEY, cliente TEXT NOT NULL,
+                    pedidos_na_fila INTEGER NOT NULL, tempo_preparo_min REAL NOT NULL);
+                CREATE TABLE categorias (id INTEGER PRIMARY KEY, nome TEXT NOT NULL);
+                CREATE TABLE pratos (id INTEGER PRIMARY KEY, nome TEXT NOT NULL, categoria_id INTEGER NOT NULL);
+                CREATE TABLE itens_pedido (pedido_id INTEGER, prato_id INTEGER, PRIMARY KEY (pedido_id, prato_id));
+                CREATE TABLE itens_originais (pedido_id INTEGER, prato_id INTEGER, PRIMARY KEY (pedido_id, prato_id));
+                CREATE TABLE migracoes (versao INTEGER PRIMARY KEY);
+                INSERT INTO migracoes VALUES (1);''')
+            db.executemany('INSERT INTO pedidos VALUES (?,?,?,?)', [(int(r['pedido_id']), r['cliente'],
+                int(r['pedidos_na_fila']), 0.0) for r in banco.ler_csv('pedidos.csv')])
+            db.executemany('INSERT INTO categorias VALUES (?,?)', [(int(r['categoria_id']), r['nome']) for r in banco.ler_csv('categorias.csv')])
+            db.executemany('INSERT INTO pratos VALUES (?,?,?)', [(int(r['prato_id']), r['nome'], int(r['categoria_id'])) for r in banco.ler_csv('pratos.csv')])
+            itens = [(int(r['pedido_id']), int(r['prato_id'])) for r in banco.ler_csv('itens_pedido.csv')]
+            db.executemany('INSERT INTO itens_originais VALUES (?,?)', itens)
+            # Item editado pela interface: precisa sobreviver à migração.
+            db.executemany('INSERT INTO itens_pedido VALUES (?,?)', itens[1:] + [(1, 60)])
+        db.close()
+        with patch.object(banco, 'CAMINHO_BANCO', caminho):
+            banco.inicializar_banco()
+            banco.inicializar_banco()
+            with banco.conectar() as db:
+                self.assertEqual(db.execute('SELECT tempo_prato_min FROM pratos WHERE id=1').fetchone()[0], 7)
+                self.assertNotIn(0, [r[0] for r in db.execute('SELECT tempo_prato_min FROM pratos')])
+                tempos = {int(r['pedido_id']): float(r['tempo_preparo_min']) for r in banco.ler_csv('pedidos.csv')}
+                self.assertEqual(dict(db.execute('SELECT id, tempo_preparo_min FROM pedidos')), tempos)
+                self.assertEqual({tuple(r) for r in db.execute('SELECT * FROM itens_pedido')}, set(itens[1:]) | {(1, 60)})
+                self.assertEqual([r[0] for r in db.execute('SELECT versao FROM migracoes ORDER BY 1')], [1, 2])
 
     def test_modelo_indisponivel_e_extrapolacao(self):
         r = self.client.post('/api/prever', json={'pratos': list(range(1, 61)), 'pedidos_na_fila': 50})

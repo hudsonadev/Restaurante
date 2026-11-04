@@ -21,7 +21,8 @@ function atualizarResumo() {
     const marcadas = caixas.filter(c => c.checked);
     $('#resumo-itens').textContent = marcadas.length;
     $('#resumo-categorias').textContent = new Set(marcadas.map(c => c.dataset.categoria)).size;
-    $('#resumo-lista').innerHTML = marcadas.map(c => `<li>${escapeHtml(c.closest('.menu-item').dataset.nome)}</li>`).join('')
+    $('#resumo-tempo').textContent = fmt(marcadas.reduce((soma, c) => soma + Number(c.dataset.tempo), 0), 1);
+    $('#resumo-lista').innerHTML = marcadas.map(c => `<li>${escapeHtml(c.closest('.menu-item').dataset.nome)} <small class="muted">${fmt(Number(c.dataset.tempo), 1)} min</small></li>`).join('')
         || '<li class="muted">Nenhum prato selecionado.</li>';
     // Um resultado antigo não deve parecer válido para a nova composição.
     requisicao++;

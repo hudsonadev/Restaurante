@@ -7,6 +7,7 @@ from unittest.mock import patch
 import numpy as np
 from flask import template_rendered
 import banco
+import regressao
 from regressao import ajustar_simples, comparar_polyfit, obter_analises
 
 
@@ -30,6 +31,16 @@ class RegressaoSimplesTest(unittest.TestCase):
         self.assertAlmostEqual(r['manual']['intercepto'], 2)
         self.assertAlmostEqual(r['polyfit']['coeficiente'], 3)
         self.assertLess(max(r['diferenca_intercepto'], r['diferenca_coeficiente']), 1e-9)
+        r = comparar_polyfit([2, 5, 7, 9, 12], [3, 4, 8, 7, 13])
+        self.assertAlmostEqual(r['manual']['r_quadrado'], r['polyfit']['r_quadrado'])
+        self.assertLess(max(r['diferenca_r_quadrado'], r['diferenca_previsao_maxima']), 1e-9)
+
+    def test_funcao_manual_nao_usa_numpy(self):
+        with patch.object(regressao, 'np', None):
+            (b0, b1), r2 = ajustar_simples([1, 2, 3, 4], [5, 8, 11, 14])
+        self.assertIsInstance(b0, float)
+        self.assertAlmostEqual(b1, 3)
+        self.assertAlmostEqual(r2, 1)
 
     def test_amostras_invalidas(self):
         for x, y in [([], []), ([1], [2]), ([1, 1], [2, 3]),
@@ -82,7 +93,7 @@ class AdminTest(unittest.TestCase):
             self.assertTrue(modelo['disponivel'])
             residuos = []
             for p in dados['observacoes']:
-                previsto = modelo['intercepto'] + (modelo['coeficiente'] * p['quantidade_itens'] if nome == 'simples'
+                previsto = modelo['intercepto'] + (modelo['coeficiente'] * p['tempo_base_itens'] if nome == 'simples'
                     else sum(coef * p[v] for v, coef in modelo['coeficientes'].items()))
                 self.assertAlmostEqual(p[f'previsao_{nome}'], previsto)
                 residuo = p['tempo_preparo'] - previsto
@@ -92,7 +103,23 @@ class AdminTest(unittest.TestCase):
             y = np.array([p['tempo_preparo'] for p in dados['observacoes']])
             self.assertAlmostEqual(modelo['r_quadrado'], 1 - np.sum(np.square(residuos)) / np.sum((y - y.mean()) ** 2))
         comparacao = dados['simples']['comparacao_polyfit']
-        self.assertLess(max(comparacao['diferenca_intercepto'], comparacao['diferenca_coeficiente']), 1e-9)
+        self.assertLess(max(comparacao['diferenca_intercepto'], comparacao['diferenca_coeficiente'],
+                            comparacao['diferenca_r_quadrado'], comparacao['diferenca_previsao_maxima']), 1e-9)
+        self.assertEqual(dados['multipla']['variaveis'], ['tempo_base_itens', 'pedidos_na_fila', 'quantidade_categorias'])
+
+    def test_tempo_dos_pratos(self):
+        with banco.conectar() as db:
+            tempos = dict(db.execute('SELECT id, tempo_prato_min FROM pratos'))
+            itens = list(db.execute('SELECT prato_id FROM itens_originais WHERE pedido_id=1'))
+        self.assertEqual(len(tempos), 60)
+        self.assertTrue(all(1 <= t <= 22 for t in tempos.values()))
+        cardapio = self.client.get('/api/pratos?pedido_id=1').json
+        self.assertEqual({p['id']: p['tempo_prato_min'] for p in cardapio}, tempos)
+        pedido = obter_analises()['observacoes'][0]
+        self.assertAlmostEqual(pedido['tempo_base_itens'], sum(tempos[r['prato_id']] for r in itens))
+        self.assertIn('Tempo de preparo (min)', self.client.get('/cardapio').get_data(as_text=True))
+        self.assertIn('Tempo base dos pratos', self.client.get('/novo-pedido').get_data(as_text=True))
+        self.assertIn('Tempo base dos pratos', self.client.get('/pedidos/1').get_data(as_text=True))
 
     def test_edicao_atualiza_agregados_sem_retreinar(self):
         antes = obter_analises()
