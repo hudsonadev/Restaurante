@@ -73,7 +73,7 @@ async function carregarPedido() {
         cardapio = pratos;
         carregando = false;
         $('#sugestoes').innerHTML = sugestoes.sugestoes.map((p, i) => card(p, i + 1)).join('') || '<p class="empty">O pedido já inclui todo o cardápio.</p>';
-        $('#sugestoes-nota').textContent = sugestoes.pedido_vazio ? 'Pedido sem itens: pratos ordenados por popularidade.' : 'Ordenadas por afinidade de categoria (50%) e pelo que pedidos semelhantes incluíram (50%).';
+        $('#sugestoes-nota').textContent = sugestoes.pedido_vazio ? 'Pedido sem itens: pratos mais populares.' : 'Combinam com as categorias do pedido e com pedidos parecidos.';
         $('#vizinhos').innerHTML = sugestoes.pedidos_semelhantes.map(p => `<div class="neighbor"><a href="/pedidos/${p.id}">#${p.id} ${escapeHtml(p.cliente)}</a><small>Similaridade ${fmt(p.similaridade)}</small></div>`).join('') || '<p class="muted">Nenhum pedido com composição semelhante.</p>';
         renderCardapio();
         $('#erro').textContent = '';

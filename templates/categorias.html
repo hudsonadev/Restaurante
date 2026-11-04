@@ -4,10 +4,9 @@
         </header>
         <section class="panel" aria-labelledby="ranking-titulo">
             <div class="section-heading"><h2 id="ranking-titulo">Ranking por categoria</h2><span class="count-label">{{ total }} itens</span></div>
-            <p class="muted" id="ranking-descricao">Cada prato presente em um pedido conta uma vez. O percentual é a participação no total de itens dos pedidos. Atualizado a cada carregamento da página.</p>
+            <p class="muted" id="ranking-descricao">Pratos nos pedidos atuais, por categoria.</p>
             {% if total %}
             <figure class="category-chart" aria-describedby="ranking-descricao">
-                <figcaption class="muted">Itens por categoria, do maior para o menor. Barras proporcionais à categoria líder.</figcaption>
                 <ol class="category-ranking">
                     {% for categoria in categorias %}
                     <li>
@@ -18,7 +17,7 @@
                 </ol>
             </figure>
             {% else %}
-            <p class="empty">Ainda não há pratos nos pedidos. Adicione pratos na página de um pedido para gerar o ranking.</p>
+            <p class="empty">Ainda não há pratos nos pedidos.</p>
             {% endif %}
         </section>
 {% endblock %}

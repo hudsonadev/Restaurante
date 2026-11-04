@@ -1,6 +1,6 @@
 <section class="panel" data-filter-table aria-labelledby="titulo-pedidos">
     <div class="section-heading"><h2 id="titulo-pedidos">Pedidos registrados</h2><span class="count-label">{{ analises.observacoes|length }} pedidos</span></div>
-    <p class="muted">Tempos em minutos. Itens, tempo dos pratos (soma dos tempos individuais) e categorias vêm dos itens originais usados nos modelos. Resíduo = real − previsto.</p>
+    <p class="muted">Tempos em minutos. Resíduo = real − previsto.</p>
     <div class="filters"><label class="search-field" for="busca-pedidos">Buscar por cliente ou número<input id="busca-pedidos" data-search type="search" placeholder="Ana, 20…"></label></div>
     <div class="table-scroll" tabindex="0" role="region" aria-label="Dados dos pedidos"><table><caption>Observações e resultados dos dois modelos</caption>
         <thead><tr><th scope="col">Pedido</th><th scope="col">Itens</th><th scope="col">Tempo dos pratos</th><th scope="col">Fila</th><th scope="col">Categorias</th><th scope="col">Tempo real</th><th scope="col">Prev. simples</th><th scope="col">Resíduo simples</th><th scope="col">Prev. múltipla</th><th scope="col">Resíduo múltipla</th></tr></thead>

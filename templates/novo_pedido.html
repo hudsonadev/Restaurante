@@ -21,7 +21,7 @@
         <h2 id="resumo-titulo">Resumo do pedido</h2>
         <label class="field" for="fila">Pedidos na fila da cozinha<input id="fila" name="pedidos_na_fila" type="number" min="0" max="{{ limite_fila }}" step="1" value="3" required></label>
         <dl class="summary-counts"><div><dt>Itens</dt><dd id="resumo-itens">0</dd></div><div><dt>Categorias</dt><dd id="resumo-categorias">0</dd></div><div><dt>Tempo base dos pratos</dt><dd><span id="resumo-tempo">0</span> <small>min</small></dd></div></dl>
-        <p class="note">Tempo base = soma dos tempos individuais dos pratos. A cozinha prepara pratos em paralelo, então o tempo do pedido não é essa soma: as regressões estimam quanto ela pesa.</p>
+        <p class="note">Tempo base = soma dos tempos dos pratos.</p>
         <ul id="resumo-lista" class="summary-list"></ul>
         <p id="erro-pedido" class="error" role="alert"></p>
         <div class="summary-actions"><button class="primary" type="submit">Calcular tempo estimado</button><button class="text-button" type="reset">Limpar</button></div>

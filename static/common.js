@@ -22,10 +22,9 @@ function renderEstimativa(r) {
         : `<div><dt>${nome}</dt><dd>${escapeHtml(m.aviso)}</dd></div>`).join('');
     // Conferência da regressão simples: mesma previsão pelo cálculo manual e pelo numpy.polyfit.
     const conferencia = r.simples.disponivel
-        ? `<p class="note">Regressão simples conferida: manual ${fmt(r.simples.previsao_bruta, 4)} min × numpy.polyfit ${fmt(r.simples.previsao_polyfit, 4)} min (diferença ${r.simples.diferenca_polyfit.toExponential(1).replace('.', ',')}).</p>` : '';
+        ? `<p class="note">Simples conferida com numpy.polyfit: diferença de ${r.simples.diferenca_polyfit.toExponential(1).replace('.', ',')} min.</p>` : '';
     return `<p class="estimate"><strong>${fmt(principal.previsao_minutos, 1)} min</strong>
-        <span>tempo estimado de preparo${r.multipla.disponivel ? ' pela regressão múltipla' : ''}</span></p>
-        <p class="muted">Tempo base dos pratos: ${fmt(r.entrada.tempo_base_itens, 1)} min (${r.quantidade_itens} itens). A cozinha trabalha em paralelo, por isso o pedido não leva a soma inteira.</p>
+        <span>tempo estimado${r.multipla.disponivel ? ' (regressão múltipla)' : ''}</span></p>
         <dl class="estimate-detail">${modelos}</dl>${conferencia}
         ${r.avisos.map(a => `<p class="note">${escapeHtml(a)}</p>`).join('')}`;
 }
