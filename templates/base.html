@@ -12,7 +12,11 @@
     <a class="skip-link" href="#inicio">Ir para o conteúdo</a>
     <header class="masthead">
         <div class="masthead-inner">
-            <a class="wordmark" href="/">Comanda</a>
+            <div class="masthead-top">
+                <span class="dateline">{{ data_hoje }}</span>
+                <a class="wordmark" href="/">Comanda</a>
+                <span class="edition">O tempo de preparo, previsto</span>
+            </div>
             <nav class="admin-nav" aria-label="Navegação administrativa">
                 {% for rota, nome in [('/', 'Visão geral'), ('/novo-pedido', 'Novo pedido'), ('/categorias', 'Categorias'), ('/cardapio', 'Cardápio'), ('/analises', 'Análises')] %}
                 <a href="{{ rota }}" {% if request.path == rota %}aria-current="page"{% endif %}>{{ nome }}</a>
@@ -21,5 +25,11 @@
         </div>
     </header>
     <main id="inicio">{% block content %}{% endblock %}</main>
+    <footer class="colophon">
+        <div class="colophon-inner">
+            <span class="colophon-name">Comanda</span>
+            <span>Previsões por regressão linear simples e múltipla · 100 pedidos sintéticos · 60 pratos do cardápio</span>
+        </div>
+    </footer>
 </body>
 </html>

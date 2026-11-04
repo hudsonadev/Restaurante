@@ -1,4 +1,5 @@
 import math
+from datetime import date
 from flask import Flask, jsonify, render_template, request, redirect, url_for, abort
 from banco import conectar, inicializar_banco
 from recomendacao import obter_clusters, recomendar
@@ -27,6 +28,15 @@ def ler_inteiro(valor, minimo, maximo):
 def criar_app():
     inicializar_banco()
     app = Flask(__name__)
+
+    @app.context_processor
+    def data_de_hoje():
+        # Data por extenso para o cabeçalho de jornal, sem depender do locale do sistema.
+        dias = ['segunda-feira', 'terça-feira', 'quarta-feira', 'quinta-feira', 'sexta-feira', 'sábado', 'domingo']
+        meses = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho',
+                 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro']
+        hoje = date.today()
+        return {'data_hoje': f'{dias[hoje.weekday()]}, {hoje.day} de {meses[hoje.month - 1]} de {hoje.year}'}
 
     @app.template_filter('numero')
     def numero(valor, casas=1):
