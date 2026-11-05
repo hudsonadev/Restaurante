@@ -1,10 +1,12 @@
 {% extends "base.html" %}{% block title %}Cardápio{% endblock %}
 {% block scripts %}<script src="{{ url_for('static', filename='tabelas.js') }}" defer></script>{% endblock %}
 {% block content %}
-<header class="page-header"><h1>Cardápio</h1></header>
+<header class="page-header"><h1>Cardápio</h1><p class="lede">Os 60 pratos, com o tempo de preparo de cada um, e as categorias mais pedidas.</p></header>
 <section class="panel" data-filter-table>
     <div class="filters"><label class="search-field" for="buscar-prato">Buscar prato<input id="buscar-prato" data-search type="search"></label><label for="categoria-global">Categoria<select id="categoria-global" data-genre><option value="">Todas as categorias</option>{% for categoria in itens|map(attribute='categoria')|unique|sort %}<option value="{{ categoria }}">{{ categoria }}</option>{% endfor %}</select></label></div>
     <div class="table-scroll" tabindex="0" role="region" aria-label="Cardápio"><table><caption>Pedidos atuais que incluem cada prato</caption><thead><tr><th scope="col">Prato</th><th scope="col" class="text">Categoria</th><th scope="col">Tempo de preparo (min)</th><th scope="col">Pedidos com o prato</th></tr></thead><tbody>
     {% for p in itens %}<tr data-row data-search-value="{{ p.nome }}" data-genre-value="{{ p.categoria }}"><th scope="row">{{ p.nome }}</th><td class="text">{{ p.categoria }}</td><td>{{ p.tempo_prato_min|numero(0) }}</td><td>{{ p.quantidade_pedidos }}</td></tr>{% endfor %}
     </tbody></table></div><p data-filter-status class="muted" role="status"></p>
-</section>{% endblock %}
+</section>
+{% include "ranking_categorias.html" %}
+{% endblock %}

@@ -16,15 +16,13 @@ const estimarTempo = (pratos, fila) => api('/api/prever', {
     body: JSON.stringify({pratos, pedidos_na_fila: fila})});
 
 function renderEstimativa(r) {
-    const principal = r.multipla.disponivel ? r.multipla : r.simples;
-    const modelos = [['Regressão múltipla', r.multipla], ['Regressão simples', r.simples]].map(([nome, m]) => m.disponivel
-        ? `<div><dt>${nome}</dt><dd><strong>${fmt(m.previsao_minutos, 1)} min</strong><code>${escapeHtml(m.calculo)}</code></dd></div>`
-        : `<div><dt>${nome}</dt><dd>${escapeHtml(m.aviso)}</dd></div>`).join('');
-    // Conferência da regressão simples: mesma previsão pelo cálculo manual e pelo numpy.polyfit.
-    const conferencia = r.simples.disponivel
-        ? `<p class="note">Simples conferida com numpy.polyfit: diferença de ${r.simples.diferenca_polyfit.toExponential(1).replace('.', ',')} min.</p>` : '';
-    return `<p class="estimate"><strong>${fmt(principal.previsao_minutos, 1)} min</strong>
-        <span>tempo estimado${r.multipla.disponivel ? ' (regressão múltipla)' : ''}</span></p>
-        <dl class="estimate-detail">${modelos}</dl>${conferencia}
+    const m = r.multipla;
+    // Conferência: a mesma previsão com os coeficientes do numpy.linalg.lstsq.
+    const conferencia = m.personalizado
+        ? `<p class="note">Usando β personalizados. Com os β calculados, seriam ${fmt(m.previsao_calculada, 1)} min.</p>`
+        : `<p class="note">Conferida com numpy.linalg.lstsq: diferença de ${m.diferenca_numpy.toExponential(1).replace('.', ',')} min.</p>`;
+    return `<p class="estimate"><strong>${fmt(m.previsao_minutos, 1)} min</strong>
+        <span>tempo estimado (regressão múltipla)</span></p>
+        <details class="detalhes"><summary>Como calculamos</summary><code class="equation">${escapeHtml(m.calculo)}</code>${conferencia}</details>
         ${r.avisos.map(a => `<p class="note">${escapeHtml(a)}</p>`).join('')}`;
 }

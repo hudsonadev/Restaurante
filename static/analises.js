@@ -13,4 +13,26 @@ function renderClusters() {
 }
 
 $('#categoria-proximidade').addEventListener('change', renderProximidade);
+
+// Coeficientes personalizados: valem em todo o sistema até voltar aos calculados.
+const formCoeficientes = $('#coeficientes-form');
+if (formCoeficientes) {
+    formCoeficientes.addEventListener('submit', async event => {
+        event.preventDefault();
+        const valores = Object.fromEntries([...formCoeficientes.querySelectorAll('.beta-input')].map(c => [c.name, c.value.trim()]));
+        if (Object.values(valores).some(v => v === '' || !Number.isFinite(Number(v)))) {
+            $('#erro-coeficientes').textContent = 'Preencha os cinco coeficientes com números.';
+            return;
+        }
+        try {
+            await api('/api/coeficientes', {method: 'PUT', headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(Object.fromEntries(Object.entries(valores).map(([k, v]) => [k, Number(v)])))});
+            location.hash = 'coeficientes'; location.reload();
+        } catch (erro) { $('#erro-coeficientes').textContent = erro.message; }
+    });
+    $('#restaurar-coeficientes')?.addEventListener('click', async () => {
+        try { await api('/api/coeficientes', {method: 'DELETE'}); location.hash = 'coeficientes'; location.reload(); }
+        catch (erro) { $('#erro-coeficientes').textContent = erro.message; }
+    });
+}
 api('/api/clusters').then(dados => { clusters = dados; renderClusters(); }).catch(erro => { $('#grupos').textContent = erro.message; });

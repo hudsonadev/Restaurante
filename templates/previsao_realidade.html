@@ -1,0 +1,13 @@
+<section class="panel" id="realidade" aria-labelledby="realidade-titulo">
+    <h2 id="realidade-titulo">Previsão × realidade</h2>
+    <p class="muted">Pedidos novos, que o modelo nunca viu: o teste mais honesto da previsão. Eles não entram no treino.</p>
+    {% if acompanhamento.quantidade %}
+    <div class="metrics"><span>Pedidos concluídos <strong>{{ acompanhamento.quantidade }}</strong></span><span>Erro absoluto médio <strong>{{ acompanhamento.erro_absoluto_medio|numero(2) }} min</strong></span><span>Viés médio <strong>{{ '%+.1f'|format(acompanhamento.vies_medio)|replace('.', ',') }} min</strong></span></div>
+    <p class="note">Viés positivo: os pedidos demoram mais que o previsto (prazos otimistas). Negativo: demoram menos.</p>
+    <div class="table-scroll"><table><caption>Pedidos concluídos</caption>
+        <thead><tr><th scope="col">Pedido</th><th scope="col" class="text">Pratos</th><th scope="col">Previsto</th><th scope="col">Real</th><th scope="col">Erro</th><th scope="col" class="text">Origem do tempo</th></tr></thead>
+        <tbody>{% for p in acompanhamento.concluidos %}
+        <tr><th scope="row">N{{ p.id }}</th><td class="text quebra">{{ p.pratos|join(', ') }}</td><td>{{ p.previsao_min|numero }} min</td><td>{{ p.tempo_real_min|numero }} min</td><td>{{ '%+.1f'|format(p.erro_min)|replace('.', ',') }} min</td><td class="text">{{ 'simulado' if p.origem_tempo == 'simulado' else 'relógio' }}</td></tr>
+        {% endfor %}</tbody></table></div>
+    {% else %}<p class="empty">Ainda não há pedidos novos concluídos. Envie pedidos pelo <a href="/novo-pedido">Novo pedido</a> e conclua na <a href="/cozinha">Cozinha</a>.</p>{% endif %}
+</section>

@@ -2,22 +2,5 @@
         <header class="page-header">
             <h1>Categorias mais pedidas</h1>
         </header>
-        <section class="panel" aria-labelledby="ranking-titulo">
-            <div class="section-heading"><h2 id="ranking-titulo">Ranking por categoria</h2><span class="count-label">{{ total }} itens</span></div>
-            <p class="muted" id="ranking-descricao">Pratos nos pedidos atuais, por categoria.</p>
-            {% if total %}
-            <figure class="category-chart" aria-describedby="ranking-descricao">
-                <ol class="category-ranking">
-                    {% for categoria in categorias %}
-                    <li>
-                        <div class="category-label"><strong>{{ categoria.nome }}</strong><span>{{ categoria.quantidade }} <span class="muted">({{ categoria.percentual|numero }}%)</span></span></div>
-                        <div class="category-track" aria-hidden="true"><span style="width: {{ categoria.largura }}%"></span></div>
-                    </li>
-                    {% endfor %}
-                </ol>
-            </figure>
-            {% else %}
-            <p class="empty">Ainda não há pratos nos pedidos.</p>
-            {% endif %}
-        </section>
+{% include "ranking_categorias.html" %}
 {% endblock %}

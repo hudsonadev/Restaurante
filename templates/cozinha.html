@@ -1,0 +1,37 @@
+{% extends "base.html" %}{% block title %}Cozinha{% endblock %}
+{% block scripts %}<script src="{{ url_for('static', filename='cozinha.js') }}" defer></script>{% endblock %}
+{% block content %}
+<header class="page-header"><h1>Cozinha</h1><p class="lede">Os pedidos enviados pelo <a href="/novo-pedido">Novo pedido</a>. Conclua cada um com "Pronto" quando sair.</p></header>
+<section class="panel" aria-labelledby="preparo-titulo">
+    <div class="section-heading"><h2 id="preparo-titulo">Em preparo</h2><span class="count-label">{{ acompanhamento.em_preparo|length }} {{ 'pedido' if acompanhamento.em_preparo|length == 1 else 'pedidos' }}</span></div>
+    {% if acompanhamento.modo_tempo == 'simulado' %}
+    <p class="muted">Modo simulado: a cozinha decide. No envio, o tempo real é sorteado pela mesma regra que criou o histórico. O cronômetro corre acelerado (1 s real = {{ (acompanhamento.aceleracao / 60)|round|int }} min) até esse tempo; aí o pedido fica pronto para sair e o botão Pronto libera. Em vermelho: passou do tempo previsto.</p>
+    {% else %}
+    <p class="muted">Clique em "Pronto" quando o pedido sair da cozinha: o tempo real é medido entre o envio e o clique.</p>
+    {% endif %}
+    <p id="erro-cozinha" class="error" role="alert"></p>
+    {% if acompanhamento.em_preparo %}
+    <div class="table-scroll"><table><caption>Do mais recente ao mais antigo</caption>
+        <thead><tr><th scope="col">Pedido</th><th scope="col" class="text">Pratos</th><th scope="col">Fila</th><th scope="col">Previsto</th>{% if acompanhamento.modo_tempo == 'simulado' %}<th scope="col">Enviado</th><th scope="col">Tempo simulado</th>{% else %}<th scope="col">Decorrido</th>{% endif %}<th scope="col"><span class="sr-only">Ação</span></th></tr></thead>
+        <tbody>{% for p in acompanhamento.em_preparo %}
+        <tr{% if destaque == p.id %} class="destaque" id="pedido-novo"{% endif %}><th scope="row">N{{ p.id }}{% if destaque == p.id %} <small class="selo">novo</small>{% endif %}</th><td class="text quebra">{{ p.pratos|join(', ') }}</td><td>{{ p.pedidos_na_fila }}</td><td>{{ p.previsao_min|numero }} min</td>
+            {% if acompanhamento.modo_tempo == 'simulado' %}
+            <td>{{ p.criado_em[11:16] }}</td>
+            <td><span class="cronometro{% if p.pronto_para_sair %} pronto-para-sair{% endif %}" data-criado="{{ p.criado_em }}" data-previsto="{{ p.previsao_min }}" data-aceleracao="{{ acompanhamento.aceleracao }}"{% if p.tempo_sorteado_min is not none %} data-sorteado="{{ p.tempo_sorteado_min }}"{% endif %}>{{ p.simulado_min|numero }} min</span><span class="status-cozinha" aria-live="polite">{% if p.pronto_para_sair %}pronto para sair{% else %}preparando{% endif %}</span></td>
+            {% else %}
+            <td><span class="cronometro" data-criado="{{ p.criado_em }}" data-previsto="{{ p.previsao_min }}" data-aceleracao="1">{{ p.decorrido_min|numero }} min</span></td>
+            {% endif %}
+            <td><button type="button" class="primary" data-pronto="{{ p.id }}"{% if acompanhamento.modo_tempo == 'simulado' and not p.pronto_para_sair %} disabled title="A cozinha ainda está preparando"{% endif %}>Pronto</button></td></tr>
+        {% endfor %}</tbody></table></div>
+    {% else %}<p class="empty">Nenhum pedido em preparo. <a href="/novo-pedido">Criar um pedido</a></p>{% endif %}
+</section>
+<section class="panel" aria-labelledby="concluidos-titulo">
+    <div class="section-heading"><h2 id="concluidos-titulo">Concluídos recentemente</h2>{% if acompanhamento.quantidade %}<a class="count-label" href="/analises#realidade">Ver previsão × realidade →</a>{% endif %}</div>
+    {% if acompanhamento.quantidade %}
+    <ul class="lista-concluidos">{% for p in acompanhamento.concluidos[:5] %}
+        <li><span><strong>N{{ p.id }}</strong> {{ p.pratos|join(', ') }}</span><span class="resultado">{{ p.tempo_real_min|numero }} min <small class="{{ 'atrasou' if p.erro_min > 0 else 'adiantou' }}">{{ '%+.1f'|format(p.erro_min)|replace('.', ',') }} vs. previsto</small></span></li>
+    {% endfor %}</ul>
+    {% else %}<p class="empty">Os pedidos marcados como prontos aparecem aqui.</p>{% endif %}
+    {% if acompanhamento.modo_tempo == 'simulado' %}<div class="summary-actions"><button id="simular" type="button">Simular 10 pedidos</button><span class="muted">cria e conclui pedidos sorteados como os do histórico</span></div>{% endif %}
+</section>
+{% endblock %}

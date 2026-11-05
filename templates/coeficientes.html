@@ -1,0 +1,20 @@
+<section class="panel" id="coeficientes" aria-labelledby="coeficientes-titulo"><h2 id="coeficientes-titulo">Coeficientes do modelo</h2>
+{% set modelo = analises.multipla %}
+{% if modelo.disponivel %}
+<p class="muted">Edite os β para usar seus próprios valores em todo o sistema. Os calculados são os que minimizam o erro nestes dados.</p>
+<form id="coeficientes-form" novalidate>
+    <div class="table-scroll"><table><caption>{% if modelo.personalizado %}Em uso: β personalizados{% else %}Em uso: β calculados{% endif %}</caption>
+        <thead><tr><th scope="col">Coeficiente</th><th scope="col">Calculado</th><th scope="col">Em uso</th></tr></thead>
+        <tbody>
+        {% for chave, nome in [('intercepto', 'β0 (intercepto)'), ('tempo_maior_prato', 'β1 (maior prato)'), ('tempo_demais_pratos', 'β2 (demais pratos)'), ('pedidos_na_fila', 'β3 (fila)'), ('quantidade_categorias', 'β4 (categorias)')] %}
+        {% set em_uso = modelo.intercepto if chave == 'intercepto' else modelo.coeficientes[chave] %}
+        <tr><th scope="row"><label for="beta-{{ chave }}">{{ nome }}</label></th><td>{{ modelo.coeficientes_calculados[chave]|numero(4) }}</td>
+            <td><input id="beta-{{ chave }}" name="{{ chave }}" type="number" step="any" value="{{ '%.4f'|format(em_uso) }}" required class="beta-input"></td></tr>
+        {% endfor %}
+        </tbody></table></div>
+    <div class="metrics"><span>R² com os β em uso <strong>{{ modelo.r_quadrado|numero(4) }}</strong></span><span>R² com os β calculados <strong>{{ modelo.r_quadrado_calculado|numero(4) }}</strong></span></div>
+    <p id="erro-coeficientes" class="error" role="alert"></p>
+    <div class="summary-actions"><button class="primary" type="submit">Usar estes coeficientes</button>{% if modelo.personalizado %}<button id="restaurar-coeficientes" class="text-button" type="button">Voltar aos calculados</button>{% endif %}</div>
+</form>
+{% else %}<p class="empty">{{ modelo.aviso }}</p>{% endif %}
+</section>

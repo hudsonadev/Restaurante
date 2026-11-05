@@ -1,4 +1,3 @@
-import importlib
 import sqlite3
 import tempfile
 import unittest
@@ -6,9 +5,10 @@ from pathlib import Path
 from unittest.mock import patch
 
 import numpy as np
-import banco
-from recomendacao import agrupar, cosseno, obter_clusters, recomendar
-from regressao import ajustar_modelo, obter_analises, obter_resumo_modelo
+from comanda import criar_app, db as banco
+from comanda.migracoes import inicializar_banco, resetar_banco
+from comanda.modelo import ajustar_modelo, ajustar_modelo_manual, obter_resumo_modelo
+from comanda.recomendacao import agrupar, cosseno, obter_clusters, recomendar
 
 
 class ProjetoTest(unittest.TestCase):
@@ -18,7 +18,7 @@ class ProjetoTest(unittest.TestCase):
         self.patch = patch.object(banco, 'CAMINHO_BANCO', Path(self.tmp.name) / 'teste.db')
         self.patch.start()
         self.addCleanup(self.patch.stop)
-        self.app = importlib.import_module('app').criar_app()
+        self.app = criar_app()
         self.app.testing = True
         self.client = self.app.test_client()
 
@@ -74,7 +74,7 @@ class ProjetoTest(unittest.TestCase):
         for _ in range(2):
             self.assertEqual(self.alterar(1, incluido, False).status_code, 200)
             self.assertEqual(self.alterar(1, novo, True).status_code, 200)
-        banco.inicializar_banco()
+        inicializar_banco()
         novo_client = self.app.test_client()
         depois = {p['id']: p['incluido'] for p in novo_client.get('/api/pratos?pedido_id=1').json}
         self.assertFalse(depois[incluido])
@@ -155,18 +155,33 @@ class ProjetoTest(unittest.TestCase):
     def test_previsao_aplica_os_coeficientes(self):
         r = self.client.post('/api/prever', json={'pratos': [1, 2, 25], 'pedidos_na_fila': 4}).json
         with banco.conectar() as db:
-            tempo_base = db.execute('SELECT SUM(tempo_prato_min) FROM pratos WHERE id IN (1, 2, 25)').fetchone()[0]
-        self.assertEqual(r['entrada'], {'tempo_base_itens': tempo_base, 'pedidos_na_fila': 4, 'quantidade_categorias': 2})
+            tempos = [t for (t,) in db.execute('SELECT tempo_prato_min FROM pratos WHERE id IN (1, 2, 25)')]
+        self.assertEqual(r['entrada'], {'tempo_maior_prato': max(tempos), 'tempo_demais_pratos': sum(tempos) - max(tempos),
+                                        'pedidos_na_fila': 4, 'quantidade_categorias': 2})
+        self.assertEqual(r['tempo_base_itens'], sum(tempos))
         self.assertEqual(r['quantidade_itens'], 3)
         modelo = obter_resumo_modelo()
         esperado = modelo['intercepto'] + sum(modelo['coeficientes'][v] * n for v, n in r['entrada'].items())
         self.assertAlmostEqual(r['multipla']['previsao_bruta'], esperado)
         self.assertAlmostEqual(r['multipla']['previsao_minutos'], max(0, esperado))
-        simples = obter_analises()['simples']
-        self.assertAlmostEqual(r['simples']['previsao_bruta'], simples['intercepto'] + simples['coeficiente'] * tempo_base)
-        self.assertAlmostEqual(r['simples']['previsao_bruta'], r['simples']['previsao_polyfit'])
-        self.assertLess(r['simples']['diferenca_polyfit'], 1e-9)
+        self.assertAlmostEqual(r['multipla']['previsao_bruta'], r['multipla']['previsao_numpy'])
+        self.assertLess(r['multipla']['diferenca_numpy'], 1e-9)
+        self.assertNotIn('simples', r)
         self.assertEqual(r['avisos'], [])
+
+    def test_reset_completo_volta_aos_csvs(self):
+        original = obter_resumo_modelo()
+        self.client.put('/api/coeficientes', json={'intercepto': 1, 'tempo_maior_prato': 1, 'tempo_demais_pratos': 1,
+                                                   'pedidos_na_fila': 1, 'quantidade_categorias': 1})
+        self.client.post('/api/acompanhados', json={'pratos': [1], 'pedidos_na_fila': 1})
+        self.alterar(1, 60, True)
+        contagens = resetar_banco()
+        self.assertEqual(contagens, {'pedidos': 100, 'pratos': 60, 'categorias': 10, 'itens_pedido': len(banco.ler_csv('itens_pedido.csv')),
+                                     'coeficientes_personalizados': 0, 'pedidos_acompanhados': 0})
+        self.assertFalse(next(p for p in self.client.get('/api/pratos?pedido_id=1').json if p['id'] == 60)['incluido'])
+        self.assertEqual(obter_resumo_modelo(), original)
+        with banco.conectar() as db:
+            self.assertEqual([r[0] for r in db.execute('SELECT versao FROM migracoes ORDER BY 1')], [1, 2, 3])
 
     def test_migracao_2_atualiza_banco_antigo(self):
         caminho = Path(self.tmp.name) / 'antigo.db'
@@ -190,15 +205,15 @@ class ProjetoTest(unittest.TestCase):
             db.executemany('INSERT INTO itens_pedido VALUES (?,?)', itens[1:] + [(1, 60)])
         db.close()
         with patch.object(banco, 'CAMINHO_BANCO', caminho):
-            banco.inicializar_banco()
-            banco.inicializar_banco()
+            inicializar_banco()
+            inicializar_banco()
             with banco.conectar() as db:
                 self.assertEqual(db.execute('SELECT tempo_prato_min FROM pratos WHERE id=1').fetchone()[0], 7)
                 self.assertNotIn(0, [r[0] for r in db.execute('SELECT tempo_prato_min FROM pratos')])
                 tempos = {int(r['pedido_id']): float(r['tempo_preparo_min']) for r in banco.ler_csv('pedidos.csv')}
                 self.assertEqual(dict(db.execute('SELECT id, tempo_preparo_min FROM pedidos')), tempos)
                 self.assertEqual({tuple(r) for r in db.execute('SELECT * FROM itens_pedido')}, set(itens[1:]) | {(1, 60)})
-                self.assertEqual([r[0] for r in db.execute('SELECT versao FROM migracoes ORDER BY 1')], [1, 2])
+                self.assertEqual([r[0] for r in db.execute('SELECT versao FROM migracoes ORDER BY 1')], [1, 2, 3])
 
     def test_modelo_indisponivel_e_extrapolacao(self):
         r = self.client.post('/api/prever', json={'pratos': list(range(1, 61)), 'pedidos_na_fila': 50})
@@ -228,6 +243,9 @@ class MatematicaTest(unittest.TestCase):
         y = 2 + x @ np.array([3, 4, 5])
         coef, r2 = ajustar_modelo(x, y)
         np.testing.assert_allclose(coef, [2, 3, 4, 5])
+        manual, r2_manual = ajustar_modelo_manual(x, y)
+        np.testing.assert_allclose(manual, [2, 3, 4, 5])
+        self.assertAlmostEqual(r2_manual, 1)
         self.assertAlmostEqual(r2, 1)
         self.assertIsNone(ajustar_modelo(x, np.ones(5))[1])
         with self.assertRaises(ValueError):

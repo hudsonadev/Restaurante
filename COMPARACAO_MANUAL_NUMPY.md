@@ -1,104 +1,118 @@
-# Regressão simples: cálculo manual × numpy.polyfit
+# Regressão múltipla: cálculo manual × numpy.linalg.lstsq
 
-Este documento verifica se a regressão linear manual está implementada e compara a função manual `ajustar_simples` ([regressao.py](regressao.py)) com `numpy.polyfit`. A explicação geral das regressões está em [DOCUMENTACAO.md](DOCUMENTACAO.md), e o passo a passo para estudo está no [GUIA_DIDATICO.md](GUIA_DIDATICO.md).
+Este documento verifica se a regressão linear múltipla está implementada à mão e compara a função manual `ajustar_modelo_manual` ([comanda/modelo/minimos_quadrados.py](comanda/modelo/minimos_quadrados.py)) com `numpy.linalg.lstsq`. A explicação completa do modelo está em [DOCUMENTACAO.md](DOCUMENTACAO.md), e a versão resumida, no [Guia didático](GUIA_DIDATICO.md).
 
 ## 1. A regressão manual está implementada?
 
-Sim. `ajustar_simples(x, y)` calcula `Y = B0 + B1·X + E` **em Python puro, sem nenhuma biblioteca**: só listas, `sum`, laços `for` e `math.isfinite` para validar a entrada.
+Sim. `ajustar_modelo_manual(x, y)` calcula
 
-- **X** é o **tempo dos pratos** do pedido: a soma dos tempos individuais de preparo dos pratos (`pratos.tempo_prato_min`), em minutos.
-- **Y** é o **tempo real de preparo** do pedido, em minutos.
-
-```python
-n = len(x)
-media_x = sum(x) / n
-media_y = sum(y) / n
-for xi, yi in zip(x, y):
-    sxy += (xi - media_x) * (yi - media_y)      # Σ(xi − x̄)(yi − ȳ)
-    sxx += (xi - media_x) ** 2                  # Σ(xi − x̄)²
-b1 = sxy / sxx                                  # coeficiente angular
-b0 = media_y - b1 * media_x                     # intercepto
-for xi, yi in zip(x, y):
-    sq_erros += (yi - (b0 + b1 * xi)) ** 2      # ΣE²
-    sq_total += (yi - media_y) ** 2             # Σ(yi − ȳ)²
-r2 = 1 - sq_erros / sq_total
+```text
+Y = β0 + β1·maior prato + β2·demais pratos + β3·fila + β4·categorias + E
 ```
 
-O teste `test_funcao_manual_nao_usa_numpy` roda a função com o NumPy desligado (`regressao.np = None`) para provar que ela não depende dele.
+**em Python puro, sem nenhuma biblioteca**: só listas, `sum`, laços `for` e `math.isfinite` para validar a entrada. É o resultado oficial do sistema: os coeficientes exibidos e usados nas previsões vêm dele.
+
+O método tem dois passos.
+
+**1. Montar as equações normais.** Com a matriz X = [1, x1, x2, x3, x4] (a coluna de 1 é o intercepto), os β que minimizam a soma dos erros ao quadrado (ΣE²) são a solução do sistema:
+
+```text
+(XᵀX) · β = Xᵀy
+```
+
+```python
+linhas = [[1.0] + linha for linha in x]                                      # coluna de 1
+xtx = [[sum(l[i] * l[j] for l in linhas) for j in range(k)] for i in range(k)]  # XᵀX (5×5)
+xty = [sum(l[i] * yi for l, yi in zip(linhas, y)) for i in range(k)]          # Xᵀy (5)
+```
+
+**2. Resolver o sistema por eliminação de Gauss** (`_resolver_gauss`), com pivoteamento parcial:
+- para cada coluna, traz para cima a linha com o maior valor (pivô) e zera os valores abaixo dele;
+- depois, calcula β de trás para frente.
+
+Se um pivô ficar praticamente zero, as variáveis são dependentes entre si, e a função avisa que não consegue estimar os coeficientes.
+
+O teste `test_funcao_manual_nao_usa_numpy` roda a função com o NumPy desligado (`minimos_quadrados.np = None`) para provar que ela não depende dele.
 
 ## 2. Resultado nos 100 pedidos
 
-| | Manual (Python puro) | `numpy.polyfit(x, y, 1)` | Diferença absoluta |
+| | Manual (Python puro) | `numpy.linalg.lstsq` | Diferença absoluta |
 | --- | --- | --- | --- |
-| B0 (intercepto) | 17,65564309613691**0** | 17,65564309613690**6** | 3,6 × 10⁻¹⁵ |
-| B1 (coeficiente angular) | 0,436861457139857**4** | 0,436861457139857**6** | 2,2 × 10⁻¹⁶ |
-| R² | 0,8427698259571683 | 0,8427698259571683 | 0 |
-| Maior diferença entre as previsões dos 100 pedidos | | | 4,3 × 10⁻¹⁴ min |
+| β0 (intercepto) | 3,367269561609 | 3,367269561609 | 2,5 × 10⁻¹⁴ |
+| β1 (maior prato) | 0,891427434220 | 0,891427434220 | 7,8 × 10⁻¹⁶ |
+| β2 (demais pratos) | 0,354579647048 | 0,354579647048 | 7,8 × 10⁻¹⁶ |
+| β3 (fila) | 1,320731243329 | 1,320731243329 | 2,9 × 10⁻¹⁵ |
+| β4 (categorias) | 1,027521552643 | 1,027521552643 | 1,6 × 10⁻¹⁴ |
+| R² | 0,947167790849 | 0,947167790849 | 0 |
+| Maior diferença entre as previsões dos 100 pedidos | | | 7,1 × 10⁻¹⁴ min |
 
-Os dois métodos chegam à **mesma reta**:
+Os dois métodos chegam ao **mesmo modelo**:
 
 ```text
-ŷ = 17,66 + 0,437 × tempo dos pratos
+ŷ = 3,37 + 0,891 × maior prato + 0,355 × demais pratos + 1,32 × fila + 1,03 × categorias
 ```
 
-A diferença aparece só na 15ª ou 16ª casa decimal, que é o limite de precisão dos números de ponto flutuante (`float64`), e não tem efeito prático. Em minutos, ela equivale a menos de um bilionésimo de segundo.
+A diferença aparece só da 14ª casa decimal em diante, que é o limite de precisão dos números de ponto flutuante (`float64`), e não tem efeito prático.
 
-Essa tabela é calculada a cada carregamento da página **Análises** (seção "Cálculo manual × numpy.polyfit") e aparece em `GET /api/analises`, no campo `simples.comparacao_polyfit`. Na página **Novo pedido**, a previsão da simples para o pedido digitado também é calculada pelos dois caminhos, e a diferença é exibida (`previsao_polyfit` e `diferenca_polyfit` em `POST /api/prever`).
+Essa tabela é calculada a cada carregamento da página **Análises** (seção "Cálculo manual × numpy.linalg.lstsq") e aparece em `GET /api/analises`, no campo `multipla.comparacao_numpy`. Na página **Novo pedido**, a previsão do pedido digitado também é refeita com os coeficientes do NumPy, e a diferença aparece na tela (`previsao_numpy` e `diferenca_numpy` em `POST /api/prever`).
 
 ## 3. Como cada um calcula
 
-### Manual
+### Manual: equações normais + Gauss
 
-Aplica as fórmulas fechadas da regressão simples, passo a passo, como no livro. Cada variável intermediária (x̄, ȳ, Σxy, Σxx) existe no código e pode ser inspecionada.
+Aplica a fórmula do livro, passo a passo. O sistema real tem só 5 equações, uma por coeficiente:
 
-### numpy.polyfit
-
-`np.polyfit(x, y, 1)` ajusta um polinômio de grau 1 por mínimos quadrados. Ele monta a matriz de Vandermonde `[x, 1]`, normaliza as colunas e resolve o sistema `Xβ ≈ y` com uma rotina da biblioteca de álgebra linear LAPACK, compilada em C/Fortran. Ele não usa a fórmula de B1: resolve o problema como álgebra matricial geral.
-
-Atenção à ordem do resultado: o polyfit devolve os coeficientes da maior potência para a menor, ou seja, `[B1, B0]`.
-
-```python
-b1, b0 = np.polyfit(x, y, 1)
+```text
+|   100    1 407    3 157    572    275 |   | β0 |   |   3 748,4 |
+| 1 407   23 347   55 336  7 872  4 047 |   | β1 |   |  59 726,1 |
+| 3 157   55 336  179 437 17 085 10 559 | · | β2 | = | 156 997,5 |
+|   572    7 872   17 085  4 886  1 574 |   | β3 |   |  23 071,8 |
+|   275    4 047   10 559  1 574    885 |   | β4 |   |  11 265,8 |
 ```
 
-**Por que dá igual?** Os dois minimizam a mesma soma dos erros ao quadrado (ΣE²), então chegam à mesma reta. **De onde vem a diferença minúscula?** Fazer as contas numa ordem diferente muda o arredondamento na última casa dos 16 dígitos que o computador guarda.
+O primeiro número, 100, é o total de pedidos. Os outros são somas: por exemplo, 1 407 é a soma dos tempos do maior prato de todos os pedidos.
+
+### numpy.linalg.lstsq: decomposição SVD
+
+O `lstsq` não monta XᵀX. Ele decompõe a própria matriz X em valores singulares (SVD) com rotinas da biblioteca de álgebra linear LAPACK, compiladas em C/Fortran, e resolve `X·β ≈ y` diretamente. Também informa o **posto** da matriz: se for menor que 4, há variáveis dependentes.
+
+**Por que dá igual?** Os dois minimizam a mesma ΣE², então chegam aos mesmos β.
+
+**De onde vem a diferença minúscula?** O caminho das contas é diferente, e isso muda o arredondamento nas últimas casas dos cerca de 16 dígitos que o computador guarda.
 
 ## 4. Diferenças práticas
 
-| Aspecto | Manual | numpy.polyfit |
+| Aspecto | Manual (equações normais) | numpy.linalg.lstsq (SVD) |
 | --- | --- | --- |
-| Resultado | Mesma reta | Mesma reta |
+| Resultado | Mesmo modelo | Mesmo modelo |
 | Transparência | Cada passo é visível e corresponde à fórmula | Chama uma rotina pronta |
 | Bibliotecas | Nenhuma (Python puro) | NumPy + LAPACK |
-| Grau / variáveis | Só reta (grau 1) com um X | Qualquer grau de polinômio, mas também com um único X |
-| Velocidade (100 pedidos) | Dezenas de µs | Poucas dezenas de µs |
-| Escala | Laços em Python ficam lentos com milhões de pontos | Vetorizado, adequado para grandes volumes |
-| Estabilidade numérica | Boa, porque centraliza os dados (xi − x̄) antes de multiplicar | Muito alta: normaliza as colunas e usa decomposição ortogonal |
-| Dados problemáticos | Detecta X constante e lança um erro explicativo | Avisa (`RankWarning`) quando o problema é mal condicionado |
+| Estabilidade numérica | Boa aqui, mas montar XᵀX "eleva ao quadrado" o mau condicionamento: com variáveis muito parecidas, perde precisão | Muito alta: trabalha direto em X, sem XᵀX |
+| Dados problemáticos | Detecta pivô quase zero e lança um erro explicativo | Informa o posto e a matriz é tratada com segurança |
+| Escala | Laços em Python ficam lentos com muitos dados | Vetorizado, adequado para grandes volumes |
 
-Para a regressão **múltipla** (tempo dos pratos, fila e categorias), nenhum dos dois serve: as fórmulas manuais acima valem só para um X, e o polyfit também trabalha com uma única variável. Por isso a múltipla usa `numpy.linalg.lstsq`, que resolve mínimos quadrados para qualquer número de variáveis.
+Neste projeto, o número de condição de XᵀX é cerca de 3 × 10⁴. Isso é baixo: com `float64`, sobram mais de 10 dígitos corretos, como a tabela confirma.
 
 ## 5. Quando usar cada um
 
-- **Manual:** mostra e explica o cálculo de `Y = B0 + B1·X + E`, como o requisito pede.
-- **numpy.polyfit:** confere o resultado e é a escolha prática em código de produção, pela velocidade e robustez.
-
-Com 100 pedidos, a diferença de velocidade (microssegundos) não importa. A escolha aqui é didática.
+- **Manual:** mostra e explica o cálculo da regressão múltipla, como o requisito pede.
+- **numpy.linalg.lstsq:** confere o resultado e é a escolha prática em código de produção, pela robustez e pela velocidade.
 
 ## 6. Como o projeto confere a equivalência
 
-- `comparar_polyfit(x, y)` em [regressao.py](regressao.py) roda os dois cálculos e devolve os coeficientes, os dois R² e as diferenças (intercepto, coeficiente, R² e maior diferença entre previsões).
+- `comparar_numpy(x, y, nomes)` em [comanda/modelo/minimos_quadrados.py](comanda/modelo/minimos_quadrados.py) roda os dois cálculos e devolve os coeficientes, os dois R² e as diferenças, inclusive a maior diferença entre previsões. O módulo não depende do banco: recebe só as listas X e y. `nomes` rotula os coeficientes (o modelo passa `NOMES_COEFICIENTES`).
 - Os testes em [tests/test_admin.py](tests/test_admin.py) verificam:
+  - `test_plano_conhecido_e_alvo_constante`: recupera y = 2 + 3a + 4b + 5c exatamente, com R² = 1;
+  - `test_manual_confere_com_numpy`: manual e `lstsq` iguais em dados com ruído (diferença < 10⁻⁹);
   - `test_funcao_manual_nao_usa_numpy`: o cálculo manual funciona com o NumPy desligado;
-  - `test_calculo_manual_confere_com_numpy`: B0 e B1 iguais aos do `np.polyfit`, soma dos erros zero e R² coerente com os erros;
-  - `test_comparacao_polyfit`: diferenças abaixo de 10⁻⁹ em retas conhecidas, inclusive no R²;
+  - `test_variaveis_dependentes_e_amostras_invalidas`: variáveis dependentes e entradas inválidas geram erro;
   - `test_previsoes_residuos_e_metricas`: diferenças abaixo de 10⁻⁹ nos dados reais da aplicação.
 - Em [tests/test_projeto.py](tests/test_projeto.py), `test_previsao_aplica_os_coeficientes` confere que a previsão de um pedido novo é igual pelos dois caminhos.
 
 Para reproduzir no terminal:
 
 ```powershell
-.\.venv\Scripts\python.exe regressao.py
+.\.venv\Scripts\python.exe gerenciar.py modelo
 ```
 
-A última linha mostra os coeficientes manuais, os do polyfit e as diferenças.
+A saída mostra a fórmula, o R² e as diferenças entre o cálculo manual e o NumPy.

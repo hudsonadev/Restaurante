@@ -1,6 +1,6 @@
-# Comanda: funcionamento, pesos e regressões
+# Comanda: documentação completa
 
-Este documento explica como o Comanda funciona: como ele estima o tempo de preparo de um pedido, os pesos das sugestões de pratos, as duas regressões e como comparar os dois modelos. Detalhes de banco, API e frontend estão em [docs/implementacao.md](docs/implementacao.md).
+Este documento explica em detalhe como o Comanda funciona: como ele estima o tempo de preparo de um pedido, os pesos das sugestões de pratos, a regressão múltipla e como avaliar o modelo. A versão resumida, para estudar ou apresentar, é o [Guia didático](GUIA_DIDATICO.md). Detalhes de código, banco, API e frontend estão em [docs/implementacao.md](docs/implementacao.md).
 
 > Os números deste documento foram calculados sobre o banco atual (100 pedidos sintéticos). Se os dados mudarem, os coeficientes também mudam. Os valores atualizados aparecem em `/analises` e em `GET /api/analises`.
 
@@ -10,29 +10,29 @@ O restaurante quer saber, assim que um pedido chega, quanto tempo ele deve levar
 
 O Comanda é uma aplicação Flask + SQLite + NumPy com dois objetivos:
 
-1. **Prever o tempo de preparo** de um pedido com duas regressões lineares ([regressao.py](regressao.py)).
-2. **Sugerir pratos** que combinam com o pedido, com base nas categorias escolhidas e no que pedidos parecidos incluíram ([recomendacao.py](recomendacao.py)).
+1. **Prever o tempo de preparo** de um pedido com uma regressão linear múltipla, calculada à mão em Python puro e conferida com o NumPy ([comanda/modelo/](comanda/modelo/)).
+2. **Sugerir pratos** que combinam com o pedido, com base nas categorias escolhidas e no que pedidos parecidos incluíram ([comanda/recomendacao.py](comanda/recomendacao.py)).
 
 ```mermaid
 flowchart LR
     CSV[CSVs em dados/] -->|Primeira carga| DB[(SQLite)]
-    DB -->|itens_originais + tempos| REG[Regressões simples e múltipla]
+    DB -->|itens_originais + tempos| REG[Regressão múltipla]
     DB -->|itens_pedido: itens atuais| REC[Sugestões de pratos]
     UI[Novo pedido: pratos + fila] -->|POST /api/prever| REG
     REG --> API[Flask]
     REC --> API
-    API --> P[Páginas Admin, Análises e Pedidos]
+    API --> P[Páginas: Novo pedido, Cozinha, Análises...]
 ```
 
 ### Fluxo de uma estimativa
 
 1. Na página **Novo pedido**, o atendente marca os pratos e informa quantos pedidos já estão na fila da cozinha.
 2. O navegador envia `{"pratos": [...], "pedidos_na_fila": n}` para `POST /api/prever`.
-3. O servidor confere se os pratos existem, busca o **tempo individual de preparo** de cada um e calcula as variáveis: **tempo dos pratos** (soma desses tempos), **fila** e **quantidade de categorias distintas**.
-4. As duas regressões aplicam seus coeficientes a essas variáveis.
-5. A página mostra o tempo estimado pela regressão múltipla em destaque e, abaixo, a conta feita por cada modelo. Para Espaguete à bolonhesa (12 min), Lasanha à bolonhesa (18 min) e Picanha grelhada (20 min) com 6 pedidos na fila, por exemplo, aparece `9,02 + 0,45 × 50,0 + 1,32 × 6 + 0,24 × 2 = 39,7 min`. A previsão da simples também é conferida com `numpy.polyfit`, e a diferença aparece na tela.
+3. O servidor confere se os pratos existem, busca o **tempo individual de preparo** de cada um e calcula as variáveis: o **maior prato** (o tempo do prato mais demorado), os **demais pratos** (a soma dos outros), a **fila** e a **quantidade de categorias distintas**.
+4. A regressão múltipla aplica seus coeficientes a essas variáveis.
+5. A página mostra o tempo estimado em destaque e, abaixo, a conta feita. Para Espaguete à bolonhesa (12 min), Lasanha à bolonhesa (18 min) e Picanha grelhada (20 min) com 6 pedidos na fila, por exemplo, aparece `3,37 + 0,89 × 20,0 + 0,35 × 30,0 + 1,32 × 6 + 1,03 × 2 = 41,8 min`. A mesma previsão é refeita com os coeficientes do `numpy.linalg.lstsq`, e a diferença aparece na tela.
 
-Se o pedido sair da faixa observada nos dados (por exemplo, fila de 30 quando o máximo registrado é 12, ou mais de 145 min de pratos), a página avisa que a estimativa é uma extrapolação.
+Se o pedido sair da faixa observada nos dados (por exemplo, fila de 30 quando o máximo registrado é 12, ou um prato acima de 22 min), a página avisa que a estimativa é uma extrapolação.
 
 ### Dados
 
@@ -40,10 +40,10 @@ Se o pedido sair da faixa observada nos dados (por exemplo, fila de 30 quando o 
 | --- | --- | --- |
 | `pedidos` | Cliente, pedidos na fila e tempo real de preparo (min) | Não |
 | `categorias`, `pratos` | Cardápio: 10 categorias, 60 pratos, cada um com seu tempo de preparo (`tempo_prato_min`) | Não |
-| `itens_originais` | Pratos de cada pedido no registro; treina as regressões | Não: fotografia fixa |
+| `itens_originais` | Pratos de cada pedido no registro; treina a regressão | Não: fotografia fixa |
 | `itens_pedido` | Pratos atuais de cada pedido; alimentam as sugestões e os totais | Sim: adicionar ou remover pratos |
 
-Editar os itens de um pedido muda as sugestões e a estimativa para a composição atual, mas **não retreina** as regressões: o tempo real registrado corresponde aos itens originais.
+Editar os itens de um pedido muda as sugestões e a estimativa para a composição atual, mas **não retreina** a regressão: o tempo real registrado corresponde aos itens originais.
 
 ### Tempo de cada prato
 
@@ -66,14 +66,28 @@ A lista completa está em `dados/pratos.csv`, no `/cardapio` e ao lado de cada p
 
 ### Como o tempo real foi gerado
 
-Os 100 pedidos são sintéticos ([preparar_dados.py](preparar_dados.py)). Uma cozinha prepara os pratos **em paralelo**: o prato mais demorado define a base, e cada prato a mais acrescenta só uma parte do próprio tempo.
+Os 100 pedidos são sintéticos: a regra está em [comanda/cozinha.py](comanda/cozinha.py), e [comanda/dados.py](comanda/dados.py) gera os CSVs com semente fixa. Uma cozinha prepara os pratos **em paralelo**: o prato mais demorado define a base, e cada prato a mais acrescenta só uma parte do próprio tempo.
 
 ```text
 cozinha    = maior tempo + 0,35 × (soma dos tempos − maior tempo)
-tempo real = 3 + cozinha + 1,3 × fila + 0,8 × categorias + ruído (desvio-padrão de 2,2 min)
+tempo real = 3 + cozinha + 1,3 × fila + 0,8 × categorias + ruído (desvio-padrão de 3,7 min)
 ```
 
-Os modelos não conhecem essa regra. A regressão usa a **soma** dos tempos, que é só uma aproximação do paralelismo; essa é a parte que ela não consegue explicar.
+O **ruído** representa o que nenhuma variável registra numa cozinha real: equipe do turno, forno atrasado, horário de pico. Seu tamanho (desvio de 3,7 min) foi **calibrado** para que o modelo correto reduza o erro em **75–76%** frente a prever sempre o tempo médio, em pedidos que ele não viu. Com menos ruído, o dataset ficaria previsível demais para uma cozinha real.
+
+O modelo não conhece essa regra: ele aprende os pesos a partir dos dados. Ainda assim, a relação foi construída por nós ao gerar os dados, e isso deve ser dito ao apresentar.
+
+**Checagens de coerência da base:**
+
+| Regra | Situação |
+| --- | --- |
+| Cada pedido tem de 1 a 8 pratos, sem repetir | ✅ |
+| Todo prato tem tempo entre 1 e 22 min | ✅ |
+| Fila entre 0 e 12 pedidos | ✅ |
+| Tempo real mínimo de 3 min | ✅ (o menor é 6,8 min) |
+| Pedidos com 2 ou mais pratos levam menos do que levariam com os pratos feitos um de cada vez | ✅ em 83 dos 85 (efeito do paralelismo) |
+
+Nos pedidos de **1 prato** o paralelismo não ajuda. Em 7 deles, e em 2 com vários pratos, o ruído deixa o tempo real alguns minutos acima dessa conta, como numa cozinha num dia mais lento.
 
 ## 2. Pesos das sugestões de pratos
 
@@ -125,168 +139,167 @@ Pratos já incluídos são excluídos, e o ranking devolve os 10 primeiros. A po
 
 A página de análises agrupa as categorias em **3 grupos** por agrupamento hierárquico de ligação média, com distância `1 − similaridade`. O resultado é informativo e não altera as sugestões.
 
-## 3. Regressão linear simples
+## 3. Regressão linear múltipla
 
 ### 3.1 Modelo
 
 ```text
-Y = B0 + B1·X + E
-```
-
-| Símbolo | Significado no projeto |
-| --- | --- |
-| Y | Variável dependente: tempo de preparo do pedido, em minutos |
-| X | Variável independente: **tempo dos pratos**, a soma dos tempos individuais dos pratos do pedido (`tempo_base_itens`), em minutos |
-| B0 | Intercepto: tempo fixo de um pedido (recepção, montagem, entrega e, na simples, a fila média) |
-| B1 | Coeficiente angular: minutos a mais no pedido para cada minuto de prato acrescentado |
-| E | Erro (resíduo): diferença entre o tempo real e o previsto |
-
-### 3.2 Cálculo manual
-
-A função `ajustar_simples` ([regressao.py](regressao.py)) calcula os coeficientes pelas fórmulas de mínimos quadrados, em Python puro, sem função pronta de regressão:
-
-```text
-x̄ = Σxi / n                 ȳ = Σyi / n
-B1 = Σ(xi − x̄)(yi − ȳ) / Σ(xi − x̄)²
-B0 = ȳ − B1·x̄
-ŷi = B0 + B1·xi
-Ei = yi − ŷi
-R² = 1 − ΣEi² / Σ(yi − ȳ)²
-```
-
-A soma dos erros é sempre zero. O ajuste exige pelo menos 2 pedidos e variação no tempo dos pratos; se todos os pedidos tivessem o mesmo tempo de pratos, o denominador de B1 seria zero.
-
-A função usa só Python puro (listas, `sum`, laços), sem NumPy. O resultado é conferido contra `numpy.polyfit(x, y, 1)`: os coeficientes coincidem até a 15ª casa decimal, e o R² é idêntico. A comparação completa está em [COMPARACAO_MANUAL_NUMPY.md](COMPARACAO_MANUAL_NUMPY.md) e aparece na página Análises.
-
-**Por que o tempo dos pratos, e não a quantidade de itens?** Contar itens trata 1 água com gás (1 min) igual a 1 risoto de camarão (22 min). Somar os tempos individuais dá a cada prato o peso que ele tem na cozinha. Com os mesmos dados, a simples com X = itens explica só 35% da variação (R² = 0,345); com X = tempo dos pratos, explica 84%.
-
-### 3.3 Resultado atual
-
-```text
-ŷ = 17,66 + 0,437 × tempo dos pratos
-```
-
-- **B1 = 0,437:** cada minuto de prato acrescenta, em média, só 26 segundos ao pedido. B1 bem menor que 1 é a **marca do paralelismo**: a cozinha prepara vários pratos ao mesmo tempo, então o pedido não leva a soma dos tempos.
-- **B0 = 17,66:** tempo fixo de um pedido. Ele absorve o que a simples não enxerga, principalmente a fila média da cozinha (6 pedidos).
-- **R² = 0,843:** o tempo dos pratos explica 84% da variação do tempo de preparo.
-
-Exemplo: o pedido #1 (Ana Almeida) tem 1 prato, Creme de cebola (7 min), com fila de 9, e levou 25,2 min.
-
-```text
-ŷ = 17,66 + 0,437 × 7 = 20,7 min
-E = 25,2 − 20,7 = 4,5 min   → demorou 4,5 minutos a mais que o previsto
-```
-
-A simples não sabe que havia 9 pedidos na frente, por isso subestimou o tempo.
-
-## 4. Regressão linear múltipla
-
-### 4.1 Modelo
-
-```text
-Y = β0 + β1·tempo dos pratos + β2·fila + β3·categorias + E
+Y = β0 + β1·maior prato + β2·demais pratos + β3·fila + β4·categorias + E
 ```
 
 | Variável | Origem |
 | --- | --- |
-| Y | Tempo de preparo em minutos (mesmo alvo da simples) |
-| tempo dos pratos | Soma dos tempos individuais dos pratos (mesmo X da simples) |
+| Y | Tempo real de preparo do pedido, em minutos |
+| maior prato | Tempo do prato mais demorado do pedido (`tempo_maior_prato`) |
+| demais pratos | Soma dos tempos dos outros pratos (`tempo_demais_pratos`) |
 | fila | Pedidos já na fila da cozinha quando o pedido chegou |
 | categorias | Categorias distintas no pedido (por exemplo, massa + bebida = 2) |
+| E | Erro (resíduo): diferença entre o tempo real e o previsto |
 
-A quantidade de itens saiu do modelo: ela anda junto com o tempo dos pratos (correlação de 0,66), e mantê-la deixaria seu coeficiente negativo e sem interpretação.
+**Por que separar o maior prato dos demais?** A cozinha prepara os pratos **em paralelo**: o mais demorado define quando o pedido fica pronto, e os outros só acrescentam um pouco. A soma de todos os tempos não diferencia "um risoto de 20 min" de "quatro saladas de 5 min", mas a cozinha trata esses pedidos de forma bem diferente. Com as mesmas variáveis de fila e categorias:
 
-### 4.2 Cálculo
+| Como o tempo dos pratos entra no modelo | R² | Redução de erro em pedidos novos |
+| --- | --- | --- |
+| Quantidade de itens | 0,422 | 17% |
+| Soma dos tempos | 0,930 | 72% |
+| **Maior prato + demais pratos** | **0,947** | **76%** |
 
-A função `ajustar_modelo` monta a matriz `[1, tempo dos pratos, fila, categorias]` e resolve os mínimos quadrados com `numpy.linalg.lstsq`, usando o mesmo critério da simples (minimizar ΣE²), agora em quatro dimensões. O ajuste exige pelo menos 4 pedidos e variáveis linearmente independentes.
+A quantidade de itens não entra: o tempo dos pratos já carrega essa informação.
 
-### 4.3 Resultado atual
+### 3.2 Cálculo manual
+
+A função `ajustar_modelo_manual` ([comanda/modelo/minimos_quadrados.py](comanda/modelo/minimos_quadrados.py)) calcula os coeficientes em **Python puro**, sem nenhuma biblioteca:
 
 ```text
-ŷ = 9,02 + 0,447 × tempo dos pratos + 1,32 × fila + 0,24 × categorias
+X = [1, maior prato, demais pratos, fila, categorias]   (uma linha por pedido; o 1 é o intercepto)
+(XᵀX) · β = Xᵀy                                          (equações normais: 5 equações, 5 incógnitas)
+β = solução por eliminação de Gauss com pivoteamento parcial
+ŷi = β0 + β1·x1i + β2·x2i + β3·x3i + β4·x4i
+Ei = yi − ŷi
+R² = 1 − ΣEi² / Σ(yi − ȳ)²
+```
+
+As equações normais dão exatamente os β que minimizam ΣE². O ajuste exige mais pedidos que coeficientes e variáveis independentes entre si. Se uma variável for constante, como a mesma fila em todos os pedidos, ou combinação das outras, o sistema não tem solução única, e o modelo fica indisponível com um aviso.
+
+O resultado é conferido contra `numpy.linalg.lstsq`: os coeficientes coincidem até a 14ª casa decimal, e o R² é idêntico. A comparação completa está em [COMPARACAO_MANUAL_NUMPY.md](COMPARACAO_MANUAL_NUMPY.md) e aparece na página Análises.
+
+### 3.3 Resultado atual
+
+```text
+ŷ = 3,37 + 0,891 × maior prato + 0,355 × demais pratos + 1,32 × fila + 1,03 × categorias
 ```
 
 Como ler os pesos (β). Cada um vale com as outras variáveis fixas:
 
-- **β1 = 0,447:** cada minuto de prato acrescenta cerca de 27 segundos ao pedido, quase o mesmo que na simples. O tempo dos pratos não dependia da fila, então separar os efeitos quase não mudou esse coeficiente.
-- **β2 = 1,32:** cada pedido na fila acrescenta cerca de 1 min 20 s. É a variável que a simples não tinha.
-- **β3 = 0,24:** cada categoria diferente acrescenta cerca de 15 segundos, um efeito pequeno.
-- **β0 = 9,02:** tempo fixo de um pedido, agora sem o efeito da fila embutido.
+- **β1 = 0,891 (maior prato):** cada minuto do prato mais demorado soma quase um minuto inteiro ao pedido. É ele que define quando o pedido fica pronto.
+- **β2 = 0,355 (demais pratos):** cada minuto dos outros pratos soma só uns 21 segundos, porque eles são feitos ao mesmo tempo que o maior. Esse é o **paralelismo** da cozinha.
+- **β3 = 1,32 (fila):** cada pedido na frente soma cerca de 1 min 20 s.
+- **β4 = 1,03 (categorias):** cada tipo de prato diferente soma cerca de 1 minuto, o custo de coordenar estações diferentes (chapa, forno, bar).
+- **β0 = 3,37:** tempo fixo de um pedido (recepção, montagem, entrega).
 
-O β2 ficou próximo do valor usado para gerar os dados (1,3). O β1 de 0,447 resume a regra de paralelismo (maior prato + 35% do resto) numa única reta.
+Os pesos ficaram próximos dos valores usados para gerar os dados (1; 0,35; 1,3; 0,8; 3). Isso mostra que o modelo recuperou a regra da cozinha a partir dos exemplos.
 
-Exemplo, o mesmo pedido #1: `9,02 + 0,447 × 7 + 1,32 × 9 + 0,24 × 1 = 24,2 min`. O resíduo cai de 4,5 para 1,0 min.
-
-A previsão é limitada a zero na exibição. Fora da faixa observada (2 a 145 min de pratos, fila de 0 a 12, 1 a 5 categorias), a página avisa que é uma extrapolação.
-
-### 4.4 Limite do modelo linear: o paralelismo
-
-A soma dos tempos é só uma aproximação de como a cozinha trabalha. Veja o pedido #12: 8 pratos que somam 72 min, mas o maior deles leva só 13 min (Fettuccine Alfredo).
+Exemplo: o pedido #1 (Ana Almeida) tem 1 prato, Creme de cebola (7 min), com fila de 9, e levou 27,0 min.
 
 ```text
-Real:      37,0 min   (pratos rápidos feitos em paralelo)
-Simples:   49,1 min   → erro de −12,1 min
-Múltipla:  43,7 min   → erro de −6,7 min
+ŷ = 3,37 + 0,891 × 7 + 0,355 × 0 + 1,32 × 9 + 1,03 × 1 = 22,5 min
+E = 27,0 − 22,5 = 4,5 min   → demorou 4,5 minutos a mais que o previsto
 ```
 
-Muitos pratos rápidos somam bastante, mas ficam prontos quase juntos, então o modelo superestima esse tipo de pedido. Para capturar isso, seria preciso uma variável como "maior tempo entre os pratos". Essa é uma melhoria possível, mas sai da regressão simples pedida.
+A previsão é limitada a zero na exibição. Fora da faixa observada (maior prato de 2 a 22 min, demais pratos até 123 min, fila de 0 a 12, 1 a 5 categorias), a página avisa que é uma extrapolação.
 
-## 5. Como comparar as duas regressões
+### 3.4 O que o modelo ainda erra
 
-Os dois modelos usam **os mesmos 100 pedidos e o mesmo Y**, então as métricas são diretamente comparáveis.
+Com o maior prato separado, o erro **não depende mais** do tipo de pedido. A correlação entre o resíduo e o maior prato é zero, e o resíduo médio é praticamente nulo para pedidos de 1, de 2 a 4 e de 5 a 8 pratos.
 
-### 5.1 Métricas
+O erro que sobra é o **ruído**, o que nenhuma variável explica. Veja o pedido #12: 8 pratos, o maior de 13 min e os demais somando 59 min, com fila de 1.
 
-| Métrica | O que mede | Simples | Múltipla | Melhor |
-| --- | --- | --- | --- | --- |
-| R² | Fração da variação do tempo explicada | 0,843 | 0,960 | Múltipla |
-| R² ajustado* | R² penalizado pelo número de variáveis | 0,841 | 0,959 | Múltipla |
-| Erro absoluto médio (EAM) | Erro típico, em minutos | 5,12 | 2,46 | Múltipla |
-| Raiz do erro quadrático médio* | Erro típico, penalizando erros grandes | 6,12 | 3,07 | Múltipla |
-| Maior erro absoluto* | Pior previsão individual | 13,7 min | 7,0 min | Múltipla |
+```text
+Regra da cozinha (sem ruído):  42,0 min
+Previsto pelo modelo:          42,3 min   → o modelo acertou a regra
+Real:                          33,7 min   → o ruído desse pedido foi de −8,3 min
+```
 
-\* Não aparecem na interface; foram calculadas a partir dos resíduos de `GET /api/analises`. As fórmulas estão na seção 5.3.
+Esse é o limite de qualquer modelo com estas variáveis.
 
-**Antes e depois do tempo dos pratos**, com os mesmos 100 pedidos:
+### 3.5 Coeficientes personalizados
 
-| Modelo | Variáveis | R² |
+Os β são **calculados** pelos mínimos quadrados, mas podem ser **substituídos** por valores escolhidos pelo usuário, na seção "Coeficientes do modelo" da página Análises ou pela API `PUT /api/coeficientes`.
+
+- Os cinco β personalizados passam a valer **em todo o sistema**: previsões do Novo pedido, página de cada pedido, gráfico, tabela de pedidos e API. Ficam gravados na tabela `coeficientes_personalizados`.
+- Todas as telas avisam "Usando β personalizados", e o botão **Voltar aos calculados** (ou `DELETE /api/coeficientes`) restaura o modelo calculado.
+- A tabela "Cálculo manual × numpy.linalg.lstsq" continua mostrando os β **calculados**, para servir de referência.
+- O R² e o erro são recalculados com os β em uso. Os β calculados são os que minimizam o erro nestes dados, então **qualquer outro conjunto tem R² menor ou igual**. Por exemplo, os pesos exatos da regra de geração (3; 1; 0,35; 1,3; 0,8) dão R² = 0,9447, abaixo dos 0,9472 dos calculados.
+
+## 4. Como avaliar o modelo
+
+### 4.1 Métricas
+
+| Métrica | O que mede | Valor |
 | --- | --- | --- |
-| Simples (versão anterior) | itens | 0,345 |
-| Simples (atual) | tempo dos pratos | **0,843** |
-| Múltipla (versão anterior) | itens, fila, categorias | 0,429 |
-| Múltipla (atual) | tempo dos pratos, fila, categorias | **0,960** |
+| **Redução de erro em pedidos novos*** | Quanto o modelo erra menos que prever sempre o tempo médio (validação cruzada) | **75,8%** |
+| Erro absoluto médio em pedidos novos* | Erro típico com pedidos que o modelo não viu | 2,98 min |
+| R² | Fração da variação do tempo explicada | 0,947 |
+| R² ajustado* | R² penalizado pelo número de variáveis | 0,945 |
+| Erro absoluto médio (EAM) | Erro típico na amostra de treino | 2,82 min |
+| Raiz do erro quadrático médio* | Erro típico, penalizando erros grandes | 3,59 min |
+| Maior erro absoluto* | Pior previsão individual | 9,3 min |
 
-Com o tempo real gerado a partir do tempo de cada prato, contar itens deixou de bastar: a nova simples, com uma única variável, já supera a múltipla antiga com três.
+\* Não aparecem na interface; foram calculadas a partir de `GET /api/analises` e da validação cruzada (seção 4.3).
 
-### 5.2 Interpretação
+### 4.2 Interpretação
 
-1. **O tempo dos pratos é a variável principal.** Sozinho, ele explica 84% da variação, contra 35% da quantidade de itens.
-2. **A múltipla é claramente melhor.** O R² sobe de 0,84 para 0,96, e o erro médio cai pela metade, de 5,1 para 2,5 min.
-3. **A melhora é real, não um efeito de ter mais variáveis.** O R² sempre aumenta ao acrescentar variáveis, mas o R² ajustado, que penaliza cada variável extra, também sobe (0,841 → 0,959).
-4. **A fila da cozinha é o fator que faltava à simples.** O mesmo pedido pode levar 10 minutos a mais ou a menos dependendo de quantos pedidos estão na frente.
-5. **Na prática, para o atendimento:** com a simples, um prazo informado ao cliente erraria, em média, 5 minutos; com a múltipla, cerca de 2,5.
+1. **O alvo do projeto foi atingido.** Em pedidos que nunca viu, o modelo erra em média 2,98 min, contra 12,29 min de quem chutasse sempre o tempo médio: **75,8% menos erro**.
+2. **Não há sobreajuste.** O erro em pedidos novos (2,98 min) é só um pouco maior que no treino (2,82 min).
+3. **Todas as variáveis contam.** As quatro têm efeito estatisticamente significativo (estatística t entre 2,5 e 17) e não se confundem entre si.
+4. **Na prática, para o atendimento:** um prazo informado ao cliente erra, em média, cerca de 3 minutos.
 
-**Conclusão:** para estimar o tempo de preparo, o restaurante deve usar a regressão múltipla. A simples continua útil como explicação didática do método e mostra que o tempo dos pratos, e não a quantidade, é o que mais pesa. Lembre que os tempos foram gerados por uma regra sintética (seção 1); com dados reais, os coeficientes precisariam ser medidos de novo.
+5. **O R² ajustado quase não cai** (0,947 → 0,945): acrescentar variáveis nunca diminui o R², mas aqui as quatro compensam o desconto.
 
-### 5.3 Fórmulas usadas na comparação
+**Cuidados ao interpretar:**
+- **Os dados são sintéticos.** A regra de geração (seção 1) define as relações; com dados reais, os coeficientes e o erro precisariam ser medidos de novo, e o R² tende a ser menor.
+- **Associação não é causa.** Um coeficiente alto não prova que uma variável *provoca* a outra.
+- **Extrapolação é arriscada.** Fora da faixa observada, o modelo pode dar valores sem sentido; o sistema avisa (seção 3.3).
+
+### 4.3 Fórmulas
 
 ```text
-n = 100 pedidos, p = número de variáveis (1 na simples, 3 na múltipla)
+n = 100 pedidos, p = 4 variáveis
 
-EAM         = Σ|Ei| / n
-RMSE        = √(ΣEi² / n)
-R²          = 1 − ΣEi² / Σ(yi − ȳ)²
-R² ajustado = 1 − (1 − R²) × (n − 1) / (n − p − 1)
+EAM               = Σ|Ei| / n
+RMSE              = √(ΣEi² / n)
+R²                = 1 − ΣEi² / Σ(yi − ȳ)²
+R² ajustado       = 1 − (1 − R²) × (n − 1) / (n − p − 1)
+Redução de erro   = 1 − EAM em pedidos novos / EAM de prever sempre a média
 ```
 
-Todas as métricas são calculadas **na mesma amostra usada no treinamento**. Elas descrevem o ajuste, não o desempenho com pedidos novos. Para isso seria preciso separar dados de teste ou fazer validação cruzada, o que este projeto não faz.
+A redução de erro usa **validação cruzada 10-fold**: os 100 pedidos são divididos em 10 grupos; o modelo é treinado com 9 e testado no grupo que ficou de fora, e isso se repete para cada grupo. O teste `test_reducao_de_erro_calibrada` garante que ela fique entre 74% e 78%.
 
-### 5.4 Onde comparar
+### 4.4 Previsão × realidade com pedidos novos
+
+A validação cruzada estima o erro em pedidos não vistos; a página **Cozinha**, junto com a seção "Previsão × realidade" de **Análises**, mede esse erro **de verdade**:
+
+1. No **Novo pedido**, a estimativa aparece ao vivo, e o botão **Enviar para a cozinha** grava os pratos, a fila e a **previsão daquele momento** (com os β em uso), além do horário.
+2. O navegador vai para `/cozinha?novo=<id>`, e o pedido aparece destacado em "Em preparo".
+3. O botão **Pronto** conclui o pedido e grava o **tempo real**, que pode vir de dois lugares (`MODO_TEMPO` em [comanda/acompanhamento.py](comanda/acompanhamento.py)):
+   - **simulado** (padrão): **a cozinha decide**. No **envio**, o tempo real é sorteado pela **mesma regra da cozinha** que criou o histórico (`cozinha.tempo_real`: paralelismo, fila, categorias e ruído de 3,7 min) e fica guardado em `tempo_sorteado_min`. Um cronômetro acelerado (`ACELERACAO_SIMULACAO = 120`: 1 segundo real = 2 minutos simulados) corre até esse tempo e para; aí o pedido fica **pronto para sair** e o botão **Pronto** libera. Antes disso o botão fica desabilitado, e a API recusa (409). O cronômetro fica vermelho quando a cozinha passa do tempo previsto pelo modelo. O tempo gravado é o sorteado, então os pedidos novos são comparáveis aos 100 do treino.
+   - **relógio**: o tempo real é o intervalo entre o envio e o clique, para uso numa cozinha de verdade. Nesse modo há um cronômetro, que fica vermelho quando passa do previsto.
+   O botão **Simular 10 pedidos** cria e conclui pedidos sorteados como os do histórico (1 a 8 pratos, fila de 0 a 12), para encher o painel rapidamente. Em 200 pedidos simulados, o erro médio fica em torno de 3 min, a mesma faixa da validação cruzada, o que confirma que a base é a mesma.
+4. O painel **Previsão × realidade**, em `/analises#realidade`, mostra o erro de cada pedido, o erro absoluto médio e o **viés médio**. Viés positivo significa que os pedidos demoram mais que o previsto, ou seja, que os prazos estão otimistas.
+5. Os pedidos novos concluídos aparecem como **losangos** no gráfico real × previsto de `/analises`, junto dos pontos do histórico.
+
+Os pedidos novos ficam nas tabelas `pedidos_acompanhados` e `pedidos_acompanhados_itens` e **não entram no treino** do modelo: são um teste independente. A previsão gravada não muda se os β forem alterados depois.
+
+### 4.5 Onde ver
 
 **Na interface:**
-- `/analises`: reta da simples, tabela manual × `numpy.polyfit`, gráficos real × previsto dos dois modelos na mesma escala (quanto mais perto da diagonal, melhor), R² e EAM lado a lado, e a tabela com as duas previsões e os dois resíduos de cada pedido.
-- `/pedidos/<id>`: previsão e resíduo do pedido nos dois modelos.
-- `/novo-pedido`: a estimativa dos dois modelos para um pedido novo, com a conta de cada um.
+- `/`: erro médio no histórico e em pedidos novos, com o viés.
+- `/analises`: gráfico real × previsto (quanto mais perto da diagonal, melhor), R², EAM e a equação.
+- `/analises`: previsão × realidade, edição dos coeficientes (seção 3.5) e tabela manual × `numpy.linalg.lstsq`.
+- `/historico`: tabela com a previsão e o resíduo de cada pedido de treino.
+- `/pedidos/<id>`: maior prato, previsão e resíduo do pedido.
+- `/novo-pedido`: a estimativa para um pedido novo, com a conta e a conferência pelo NumPy; o botão "Enviar para a cozinha" começa a medir o tempo real.
+- `/cozinha`: pedidos em preparo com cronômetro e botão "Pronto", e os concluídos recentemente (seção 4.4).
 
 **Pela API:**
 
@@ -298,24 +311,14 @@ curl http://127.0.0.1:5000/api/analises
 
 ```python
 import numpy as np
-from regressao import obter_analises
+from comanda.modelo import obter_analises
 
 a = obter_analises()
-obs, n = a['observacoes'], len(a['observacoes'])
-for nome, p in [('simples', 1), ('multipla', 3)]:
-    e = np.array([o[f'residuo_{nome}'] for o in obs])
-    r2 = a[nome]['r_quadrado']
-    print(nome, 'R²', round(r2, 4),
-          'R² aj.', round(1 - (1 - r2) * (n - 1) / (n - p - 1), 4),
-          'EAM', round(np.abs(e).mean(), 3),
-          'RMSE', round(np.sqrt((e ** 2).mean()), 3))
+obs, n, p = a['observacoes'], len(a['observacoes']), 4
+e = np.array([o['residuo_multipla'] for o in obs])
+r2 = a['multipla']['r_quadrado']
+print('R²', round(r2, 4),
+      'R² aj.', round(1 - (1 - r2) * (n - 1) / (n - p - 1), 4),
+      'EAM', round(np.abs(e).mean(), 3),
+      'RMSE', round(np.sqrt((e ** 2).mean()), 3))
 ```
-
-### 5.5 Checklist para comparar dois modelos de regressão
-
-1. Confirme que os dois usam o mesmo Y e as mesmas observações.
-2. Compare o R² ajustado, não apenas o R².
-3. Compare os erros em unidades reais (EAM e raiz do erro quadrático médio, em minutos).
-4. Veja se os coeficientes novos têm tamanho relevante na prática.
-5. Observe os gráficos real × previsto: os pontos devem ficar perto da diagonal, sem padrão.
-6. Com desempenho parecido, prefira o modelo mais simples. Aqui o desempenho não é parecido, então a múltipla vence.

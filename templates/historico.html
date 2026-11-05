@@ -1,0 +1,6 @@
+{% extends "base.html" %}{% block title %}Histórico{% endblock %}
+{% block scripts %}<script src="{{ url_for('static', filename='tabelas.js') }}" defer></script>{% endblock %}
+{% block content %}
+<header class="page-header"><h1>Histórico</h1><p class="lede">Os 100 pedidos usados para treinar o modelo. Abra um pedido para ver os pratos, a previsão e sugestões.</p></header>
+{% include "observacoes.html" %}
+{% endblock %}

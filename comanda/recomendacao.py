@@ -1,6 +1,6 @@
 """Sugestões explicáveis de pratos com cosseno e agrupamento hierárquico médio."""
 import numpy as np
-from banco import conectar
+from comanda.db import conectar
 
 
 def cosseno(linhas):

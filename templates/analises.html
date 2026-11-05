@@ -1,27 +1,28 @@
 {% extends "base.html" %}{% block title %}Análises{% endblock %}
-{% block scripts %}<script src="{{ url_for('static', filename='graficos.js') }}" defer></script><script src="{{ url_for('static', filename='tabelas.js') }}" defer></script><script src="{{ url_for('static', filename='analises.js') }}" defer></script>{% endblock %}
+{% block scripts %}<script src="{{ url_for('static', filename='graficos.js') }}" defer></script><script src="{{ url_for('static', filename='analises.js') }}" defer></script>{% endblock %}
 {% block content %}
-<header class="page-header"><h1>Análises</h1></header>
-{% include "grafico_simples.html" %}
-{% set comparacao = analises.simples.comparacao_polyfit %}
-<section class="panel" id="polyfit" aria-labelledby="polyfit-titulo"><h2 id="polyfit-titulo">Cálculo manual × numpy.polyfit</h2>
+<header class="page-header"><h1>Análises</h1><p class="lede">Como o modelo prevê o tempo de preparo, quão bem ele acerta e de onde vêm os números.</p>
+    <nav class="sumario" aria-label="Nesta página"><a href="#regressao">Desempenho</a><a href="#realidade">Previsão × realidade</a><a href="#coeficientes">Coeficientes</a><a href="#manual-numpy">Manual × NumPy</a><a href="#clusters">Grupos de categorias</a></nav>
+</header>
+{% include "grafico_modelo.html" %}
+{% include "previsao_realidade.html" %}
+{% include "coeficientes.html" %}
+{% set comparacao = analises.multipla.comparacao_numpy %}
+<section class="panel" id="manual-numpy" aria-labelledby="manual-numpy-titulo"><h2 id="manual-numpy-titulo">Cálculo manual × numpy.linalg.lstsq</h2>
 {% if comparacao %}
-<p class="muted">A mesma reta calculada à mão, em Python puro, e por <code>numpy.polyfit(x, y, 1)</code>.</p>
-<div class="table-scroll"><table><caption>Coeficientes e ajuste da regressão simples</caption>
-    <thead><tr><th scope="col">Medida</th><th scope="col">Manual (Python puro)</th><th scope="col">numpy.polyfit</th><th scope="col">Diferença absoluta</th></tr></thead>
+<p class="muted">Os mesmos coeficientes calculados à mão, em Python puro (equações normais), e por <code>numpy.linalg.lstsq</code>.</p>
+<div class="table-scroll"><table><caption>Coeficientes e ajuste da regressão múltipla</caption>
+    <thead><tr><th scope="col">Medida</th><th scope="col">Manual (Python puro)</th><th scope="col">numpy.linalg.lstsq</th><th scope="col">Diferença absoluta</th></tr></thead>
     <tbody>
-        <tr><th scope="row">B0 (intercepto)</th><td>{{ comparacao.manual.intercepto|numero(12) }}</td><td>{{ comparacao.polyfit.intercepto|numero(12) }}</td><td>{{ comparacao.diferenca_intercepto|cientifico }}</td></tr>
-        <tr><th scope="row">B1 (coeficiente angular)</th><td>{{ comparacao.manual.coeficiente|numero(12) }}</td><td>{{ comparacao.polyfit.coeficiente|numero(12) }}</td><td>{{ comparacao.diferenca_coeficiente|cientifico }}</td></tr>
-        <tr><th scope="row">R²</th><td>{{ comparacao.manual.r_quadrado|numero(12) }}</td><td>{{ comparacao.polyfit.r_quadrado|numero(12) }}</td><td>{{ comparacao.diferenca_r_quadrado|cientifico }}</td></tr>
-        <tr><th scope="row">Maior diferença entre previsões</th><td colspan="2">—</td><td>{{ comparacao.diferenca_previsao_maxima|cientifico }} min</td></tr>
+        {% for chave, nome in [('intercepto', 'β0 (intercepto)'), ('tempo_maior_prato', 'β1 (maior prato)'), ('tempo_demais_pratos', 'β2 (demais pratos)'), ('pedidos_na_fila', 'β3 (fila)'), ('quantidade_categorias', 'β4 (categorias)')] %}
+        <tr><th scope="row">{{ nome }}</th><td>{{ comparacao.manual.coeficientes[chave]|numero(12) }}</td><td>{{ comparacao.numpy.coeficientes[chave]|numero(12) }}</td><td>{{ comparacao.diferencas[chave]|cientifico }}</td></tr>
+        {% endfor %}
+        <tr><th scope="row">R²</th><td>{{ comparacao.manual.r_quadrado|numero(12) }}</td><td>{{ comparacao.numpy.r_quadrado|numero(12) }}</td><td>{{ comparacao.diferencas.r_quadrado|cientifico }}</td></tr>
+        <tr><th scope="row">Maior diferença entre previsões</th><td colspan="2">—</td><td>{{ comparacao.diferencas.previsao_maxima|cientifico }} min</td></tr>
     </tbody></table></div>
-<p class="note">Os dois chegam à mesma reta; as diferenças são só arredondamento do computador.</p>
-{% else %}<p class="empty">{{ analises.simples.aviso }}</p>{% endif %}
+<p class="note">Os dois chegam aos mesmos coeficientes; as diferenças são só arredondamento do computador.</p>
+{% else %}<p class="empty">{{ analises.multipla.aviso }}</p>{% endif %}
 </section>
-<section class="panel" aria-labelledby="comparacao-titulo"><h2 id="comparacao-titulo">Real × previsto</h2><p class="muted">Quanto mais perto da diagonal, melhor a previsão.</p>
-<div class="comparison-grid">{% for chave, nome in [('simples','Regressão simples'),('multipla','Regressão múltipla')] %}{% set modelo = analises[chave] %}<article><h3>{{ nome }}</h3>
-{% if modelo.disponivel %}<div class="metrics"><span>R² <strong>{{ modelo.r_quadrado|numero(3) }}</strong></span><span>Erro absoluto médio <strong>{{ modelo.erro_absoluto_medio|numero(2) }} min</strong></span></div><code class="equation">{{ modelo.formula }}</code><div class="chart-container" data-chart="comparacao-{{ chave }}"></div><p class="chart-legend"><span class="legend-dot"></span> Pedidos <span class="legend-line"></span> Diagonal y = x</p>{% else %}<p class="empty">{{ modelo.aviso }}</p>{% endif %}</article>{% endfor %}</div></section>
-{% include "observacoes.html" %}
 {% include "clusters.html" %}
 <script id="dados-analises" type="application/json">{{ analises|tojson }}</script>
 {% endblock %}

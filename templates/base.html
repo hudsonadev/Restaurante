@@ -18,18 +18,18 @@
                 <span class="edition">O tempo de preparo, previsto</span>
             </div>
             <nav class="admin-nav" aria-label="Navegação administrativa">
-                {% for rota, nome in [('/', 'Visão geral'), ('/novo-pedido', 'Novo pedido'), ('/categorias', 'Categorias'), ('/cardapio', 'Cardápio'), ('/analises', 'Análises')] %}
-                <a href="{{ rota }}" {% if request.path == rota %}aria-current="page"{% endif %}>{{ nome }}</a>
+                {% set secoes = [('Operação', [('/', 'Início'), ('/novo-pedido', 'Novo pedido'), ('/cozinha', 'Cozinha')]),
+                                 ('Modelo', [('/analises', 'Análises')]),
+                                 ('Referência', [('/cardapio', 'Cardápio'), ('/historico', 'Histórico')])] %}
+                {% set ativa = '/historico' if request.path.startswith('/pedidos/') else ('/cardapio' if request.path == '/categorias' else request.path) %}
+                {% for titulo, itens in secoes %}
+                <div class="nav-group"><span class="nav-label">{{ titulo }}</span>
+                    <div class="nav-links">{% for rota, nome in itens %}<a href="{{ rota }}" {% if ativa == rota %}aria-current="page"{% endif %}>{{ nome }}</a>{% endfor %}</div>
+                </div>
                 {% endfor %}
             </nav>
         </div>
     </header>
     <main id="inicio">{% block content %}{% endblock %}</main>
-    <footer class="colophon">
-        <div class="colophon-inner">
-            <span class="colophon-name">Comanda</span>
-            <span>Previsões por regressão linear simples e múltipla · 100 pedidos sintéticos · 60 pratos do cardápio</span>
-        </div>
-    </footer>
 </body>
 </html>

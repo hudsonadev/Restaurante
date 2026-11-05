@@ -1,14 +1,48 @@
 {% extends "base.html" %}
-{% block title %}Visão geral{% endblock %}
-{% block scripts %}<script src="{{ url_for('static', filename='graficos.js') }}" defer></script><script src="{{ url_for('static', filename='tabelas.js') }}" defer></script>{% endblock %}
+{% block title %}Início{% endblock %}
+{% block scripts %}<script src="{{ url_for('static', filename='cozinha.js') }}" defer></script>{% endblock %}
 {% block content %}
-<header class="page-header"><h1>Visão geral</h1></header>
-<dl class="figures" aria-label="Indicadores gerais">
-    {% for chave, nome in [('pedidos','Pedidos'),('pratos','Pratos'),('categorias','Categorias'),('itens_pedido','Itens atuais')] %}<div><dt>{{ nome }}</dt><dd>{{ indicadores[chave] }}</dd></div>{% endfor %}
-    <div><dt>Fila média</dt><dd>{{ medias[0]|numero }} <small>pedidos</small></dd></div>
-    <div><dt>Preparo médio</dt><dd>{{ medias[1]|numero }} <small>min</small></dd></div>
-</dl>
-{% include "grafico_simples.html" %}
-{% include "observacoes.html" %}
-<script id="dados-analises" type="application/json">{{ analises|tojson }}</script>
+<header class="page-header"><h1>Hoje na cozinha</h1>
+    <p class="lede">Monte um pedido, veja quanto ele deve levar e acompanhe até sair da cozinha.</p>
+    <div class="cta-row"><a class="botao primary" href="/novo-pedido">Novo pedido</a><a class="botao" href="/cozinha">Abrir a cozinha</a></div>
+</header>
+
+<div class="duas-colunas">
+<section class="panel" aria-labelledby="agora-titulo">
+    <div class="section-heading"><h2 id="agora-titulo">Em preparo agora</h2><span class="count-label">{{ acompanhamento.em_preparo|length }} {{ 'pedido' if acompanhamento.em_preparo|length == 1 else 'pedidos' }}</span></div>
+    {% if acompanhamento.em_preparo %}
+    <ul class="lista-preparo">{% for p in acompanhamento.em_preparo[:5] %}
+        <li><span><strong>N{{ p.id }}</strong> {{ p.pratos|join(', ') }}</span>
+            <span class="resultado">{% if acompanhamento.modo_tempo == 'simulado' %}<span class="cronometro{% if p.pronto_para_sair %} pronto-para-sair{% endif %}" data-criado="{{ p.criado_em }}" data-previsto="{{ p.previsao_min }}" data-aceleracao="{{ acompanhamento.aceleracao }}"{% if p.tempo_sorteado_min is not none %} data-sorteado="{{ p.tempo_sorteado_min }}"{% endif %}>{{ p.simulado_min|numero }} min</span><span class="status-cozinha">{% if p.pronto_para_sair %}pronto para sair{% else %}previsto {{ p.previsao_min|numero }} min{% endif %}</span>{% else %}previsto {{ p.previsao_min|numero }} min{% endif %}</span></li>
+    {% endfor %}</ul>
+    {% if acompanhamento.em_preparo|length > 5 %}<p class="note">E mais {{ acompanhamento.em_preparo|length - 5 }} na <a href="/cozinha">Cozinha</a>.</p>{% endif %}
+    {% else %}<p class="empty">Nenhum pedido em preparo. <a href="/novo-pedido">Criar um pedido</a></p>{% endif %}
+</section>
+
+<section class="panel" aria-labelledby="modelo-titulo">
+    <div class="section-heading"><h2 id="modelo-titulo">Como o modelo está indo</h2><a class="count-label" href="/analises">Análises →</a></div>
+    {% if modelo.disponivel %}
+    <dl class="mini-figures">
+        <div><dt>Erro médio no histórico</dt><dd>{{ analises.multipla.erro_absoluto_medio|numero(1) }} <small>min</small></dd></div>
+        <div><dt>R² no histórico</dt><dd>{{ modelo.r_quadrado|numero(3) }}</dd></div>
+        {% if acompanhamento.quantidade %}
+        <div><dt>Erro médio em pedidos novos</dt><dd>{{ acompanhamento.erro_absoluto_medio|numero(1) }} <small>min</small></dd></div>
+        <div><dt>Viés (novos)</dt><dd>{{ '%+.1f'|format(acompanhamento.vies_medio)|replace('.', ',') }} <small>min</small></dd></div>
+        {% endif %}
+    </dl>
+    <p class="note">{% if acompanhamento.quantidade %}Medido em {{ acompanhamento.quantidade }} {{ 'pedido novo concluído' if acompanhamento.quantidade == 1 else 'pedidos novos concluídos' }}, que o modelo nunca viu.{% else %}Conclua pedidos na Cozinha para medir o erro em pedidos novos.{% endif %}{% if modelo.personalizado %} <strong>Usando β personalizados.</strong>{% endif %}</p>
+    {% else %}<p class="empty">{{ modelo.aviso }}</p>{% endif %}
+</section>
+</div>
+
+<section class="panel indice" aria-labelledby="indice-titulo">
+    <h2 id="indice-titulo">Nesta edição</h2>
+    <ol class="lista-indice">
+        <li><a href="/novo-pedido">Novo pedido</a><span>Escolha os pratos, veja o tempo estimado ao vivo e envie para a cozinha.</span></li>
+        <li><a href="/cozinha">Cozinha</a><span>Pedidos em preparo, com cronômetro e botão Pronto.</span></li>
+        <li><a href="/analises">Análises</a><span>Desempenho do modelo, previsão × realidade, coeficientes e o cálculo manual × NumPy.</span></li>
+        <li><a href="/cardapio">Cardápio</a><span>Os {{ indicadores.pratos }} pratos com o tempo de cada um e as categorias mais pedidas.</span></li>
+        <li><a href="/historico">Histórico</a><span>Os {{ indicadores.pedidos }} pedidos de treino; preparo médio de {{ medias[1]|numero }} min com fila média de {{ medias[0]|numero }}.</span></li>
+    </ol>
+</section>
 {% endblock %}

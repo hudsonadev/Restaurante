@@ -1,4 +1,4 @@
-﻿:root {
+:root {
     color-scheme: light;
     --paper: #f5f3ee;
     --sheet: #fbfaf7;
@@ -43,15 +43,15 @@ strong { font-weight: 600; }
 .dateline::first-letter { text-transform: uppercase; }
 .edition { text-align: right; }
 .wordmark { font: 700 52px/0.95 var(--serif); letter-spacing: -.02em; text-decoration: none; white-space: nowrap; text-align: center; }
-.admin-nav { display: flex; justify-content: center; gap: 34px; overflow-x: auto; padding: 2px 0; border-bottom: 3px double var(--rule-strong); }
-.admin-nav a { padding: 10px 0 8px; white-space: nowrap; text-decoration: none; color: var(--muted); font-size: 13px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; border-bottom: 2px solid transparent; }
+.admin-nav { display: flex; justify-content: center; gap: 0; overflow-x: auto; padding: 2px 0; border-bottom: 3px double var(--rule-strong); }
+.nav-group { display: flex; flex-direction: column; align-items: center; padding: 6px 26px 0; }
+.nav-group + .nav-group { border-left: 1px solid var(--rule); }
+.nav-label { color: var(--muted); font: italic 11px var(--serif); letter-spacing: .02em; }
+.nav-links { display: flex; gap: 22px; }
+.admin-nav a { padding: 4px 0 8px; white-space: nowrap; text-decoration: none; color: var(--muted); font-size: 13px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; border-bottom: 2px solid transparent; }
 .admin-nav a:hover { color: var(--ink); }
 .admin-nav a[aria-current] { color: var(--ink); border-bottom-color: var(--accent); }
 
-/* Expediente no rodapé */
-.colophon { margin-top: 24px; border-top: 3px double var(--rule-strong); }
-.colophon-inner { max-width: 1120px; margin: auto; padding: 16px 24px 32px; display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 18px; color: var(--muted); font: italic 13px var(--serif); }
-.colophon-name { color: var(--ink); font: 700 18px var(--serif); font-style: normal; }
 
 main { max-width: 1120px; margin: auto; padding: 0 24px 40px; }
 .id-label { color: var(--muted); font-size: .6em; font-variant-numeric: lining-nums; }
@@ -107,6 +107,16 @@ button:disabled:hover { background: transparent; color: var(--ink); }
 .filters label { display: grid; gap: 6px; color: var(--muted); font-size: 13px; }
 .search-field { flex: 1; min-width: 220px; max-width: 420px; }
 .field { display: grid; gap: 6px; color: var(--muted); font-size: 13px; }
+td.quebra { white-space: normal; min-width: 240px; line-height: 1.4; }
+.cronometro { font-variant-numeric: tabular-nums; }
+.cronometro.atrasado { color: var(--accent); font-weight: 600; }
+.status-cozinha { display: block; color: var(--muted); font: italic 12px var(--serif); }
+.cronometro.pronto-para-sair + .status-cozinha { color: #3d6b4f; font-weight: 600; font-style: normal; }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.chart-point-novo { fill: var(--accent); stroke: var(--ink); stroke-width: 1.2; }
+.legend-novo { width: 10px; height: 10px; margin-left: 14px; background: var(--accent); transform: rotate(45deg); }
+.beta-input { max-width: 160px; text-align: right; font-variant-numeric: tabular-nums; }
+#coeficientes td:last-child { width: 180px; }
 
 /* Novo pedido */
 .order-layout { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 40px; align-items: start; }
@@ -280,3 +290,68 @@ table small { color: var(--muted); font-size: 12px; }
 @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after { transition: none !important; scroll-behavior: auto !important; }
 }
+
+/* ===== Fluxo por tarefa (Início, Novo pedido, Cozinha, Análises) ===== */
+.lede a, .note a, .empty a { color: inherit; text-decoration-color: var(--accent); text-underline-offset: 3px; }
+.cta-row { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 18px; }
+.botao { display: inline-flex; align-items: center; min-height: 42px; padding: 8px 22px; border: 1px solid var(--ink); text-decoration: none; font-weight: 600; transition: background .12s, color .12s; }
+.botao:hover { background: var(--ink); color: var(--paper); }
+.botao.primary { background: var(--ink); color: var(--paper); }
+.botao.primary:hover { background: var(--accent); border-color: var(--accent); }
+.duas-colunas { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr); gap: 0 40px; }
+.duas-colunas > .panel + .panel { border-left: 1px solid var(--rule); padding-left: 40px; }
+
+/* Listas de pedidos, como notas de jornal */
+.lista-preparo, .lista-concluidos { list-style: none; margin: 14px 0 0; padding: 0; }
+.lista-preparo li, .lista-concluidos li { display: flex; justify-content: space-between; align-items: baseline; gap: 18px; padding: 10px 0; border-bottom: 1px solid var(--rule); font-size: 14px; }
+.lista-preparo li > span:first-child, .lista-concluidos li > span:first-child { min-width: 0; }
+.resultado { flex-shrink: 0; text-align: right; font-variant-numeric: tabular-nums; }
+.resultado small { display: block; font: italic 12px var(--serif); }
+.atrasou { color: var(--accent); }
+.adiantou { color: #3d6b4f; }
+.selo { margin-left: 6px; padding: 1px 6px; border: 1px solid var(--accent); color: var(--accent); font: 600 10px var(--sans); letter-spacing: .08em; text-transform: uppercase; vertical-align: middle; }
+tr.destaque { background: #f3e4d8; animation: piscar 2.4s ease-out 1; }
+@keyframes piscar { from { background: #ecc9ae; } to { background: #f3e4d8; } }
+
+/* Mini indicadores e índice da edição */
+.mini-figures { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px 24px; margin: 16px 0 6px; }
+.mini-figures dt { color: var(--muted); font-size: 11.5px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; }
+.mini-figures dd { margin: 2px 0 0; font: 700 26px/1.1 var(--serif); font-variant-numeric: lining-nums; }
+.mini-figures small { font: 14px var(--sans); color: var(--muted); }
+.lista-indice { margin: 14px 0 0; padding: 0; list-style: none; counter-reset: indice; columns: 2; column-gap: 40px; }
+.lista-indice li { break-inside: avoid; counter-increment: indice; padding: 10px 0 10px 34px; position: relative; border-top: 1px solid var(--rule); }
+.lista-indice li::before { content: counter(indice); position: absolute; left: 0; top: 8px; font: 700 20px var(--serif); color: var(--accent); }
+.lista-indice a { font: 700 17px var(--serif); text-decoration: none; }
+.lista-indice a:hover { text-decoration: underline; text-decoration-color: var(--accent); }
+.lista-indice span { display: block; color: var(--muted); font-size: 13.5px; }
+
+/* Sumário no topo de Análises */
+.sumario { display: flex; flex-wrap: wrap; gap: 6px 0; margin-top: 16px; font-size: 13px; }
+.sumario a { color: var(--muted); text-decoration: none; }
+.sumario a + a::before { content: '·'; margin: 0 10px; color: var(--rule-strong); }
+.sumario a:hover { color: var(--ink); }
+
+/* Novo pedido: estimativa ao vivo */
+.estimativa-viva { min-height: 92px; margin: 14px 0 6px; padding: 14px 0; border-top: 1px solid var(--rule-strong); border-bottom: 1px solid var(--rule); transition: opacity .15s; }
+.estimativa-viva.atualizando { opacity: .55; }
+.estimativa-vazia { margin: 0; color: var(--muted); font: italic 15px var(--serif); }
+.estimativa-viva .estimate { margin: 0; }
+.summary-list { list-style: none; padding-left: 0; }
+.summary-list li { display: flex; justify-content: space-between; gap: 12px; padding: 4px 0; border-bottom: 1px dotted var(--rule); }
+.field small { font-size: 12px; }
+.detalhes { margin: 14px 0 4px; font-size: 13.5px; }
+.detalhes summary { color: var(--muted); font: italic 14px var(--serif); }
+.detalhes summary:hover { color: var(--ink); }
+.detalhes[open] summary { margin-bottom: 8px; }
+.detalhes .summary-counts { margin-top: 6px; }
+.order-summary .summary-actions .primary { flex: 1; }
+@media (max-width: 900px) {
+    .duas-colunas { grid-template-columns: minmax(0, 1fr); }
+    .duas-colunas > .panel + .panel { border-left: 0; padding-left: 0; }
+    .lista-indice { columns: 1; }
+}
+@media (max-width: 720px) {
+    .nav-group { padding: 4px 14px 0; align-items: flex-start; }
+    .nav-links { gap: 16px; }
+}
+@media (prefers-reduced-motion: reduce) { tr.destaque { animation: none; } }
