@@ -27,8 +27,8 @@ def preparar():
     escrever('pratos.csv', ['prato_id', 'nome', 'categoria_id', 'tempo_prato_min'], pratos)
     categoria_por_prato = {p[0]: p[2] for p in pratos}
     tempo_por_prato = {p[0]: p[3] for p in pratos}
-    nomes = ['Ana', 'Bruno', 'Camila', 'Diego', 'Elisa', 'Felipe', 'Gabriela', 'Hugo', 'Isabela', 'João']
-    sobrenomes = ['Almeida', 'Barros', 'Costa', 'Dias', 'Esteves', 'Freitas', 'Gomes', 'Lima', 'Moura', 'Nunes']
+    nomes = ['Ana', 'Robson', 'Josue', 'Lourimar', 'Pedro', 'Felipe', 'Hudson', 'Laissa', 'Vanessa', 'João']
+    sobrenomes = ['Almeida', 'Veloso', 'Alves', 'Rubem', 'Noleto', 'Freitas', 'Gomes', 'Lima', 'Moura', 'Nunes'] # não lembro o sobrenome de todo mundo
     pedidos, itens = [], []
     for pid in range(1, 101):
         preferidas = GRUPOS[(pid - 1) % 3]

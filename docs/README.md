@@ -7,9 +7,10 @@ Este diretório descreve a implementação para quem usa, estuda ou modifica o p
 1. [Guia didático](../GUIA_DIDATICO.md): **a versão simples**. O caso em poucas páginas: dados, regressão à mão, resultado, site e como rodar.
 2. [README principal](../README.md): instalação, execução, páginas e API.
 3. [Documentação completa](../DOCUMENTACAO.md): como a estimativa é feita, os pesos das sugestões, a regressão em detalhe e como avaliar o modelo.
-4. [Cálculo manual × numpy.linalg.lstsq](../COMPARACAO_MANUAL_NUMPY.md): verificação da regressão manual.
-5. [Como foi implementado](implementacao.md): organização do código, dados, banco, API e interface.
-6. [Manutenção para humanos e IA](manutencao.md): onde mexer, regras a preservar, testes e diagnóstico.
+4. [Documentação técnica da regressão](../DOCUMENTACAO_TECNICA.md): implementação e matemática passo a passo (equações normais, Gauss, SVD, métricas e validação cruzada).
+5. [Cálculo manual × numpy.linalg.lstsq](../COMPARACAO_MANUAL_NUMPY.md): verificação da regressão manual.
+6. [Como foi implementado](implementacao.md): organização do código, dados, banco, API e interface.
+7. [Manutenção para humanos e IA](manutencao.md): onde mexer, regras a preservar, testes e diagnóstico.
 
 ## Mapa do projeto
 
