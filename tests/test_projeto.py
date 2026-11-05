@@ -130,7 +130,7 @@ class ProjetoTest(unittest.TestCase):
         r = recomendar(1)
         self.assertEqual(r['sugestoes'][0]['id'], 3)
         self.assertAlmostEqual(r['sugestoes'][0]['pontuacao_colaborativa'], 1)
-        self.assertIn('#2 Bruno Almeida', ' '.join(r['sugestoes'][0]['motivos']))
+        self.assertIn('#2 Robson Almeida', ' '.join(r['sugestoes'][0]['motivos']))
 
     def test_validacao_api(self):
         for url, status in [('/api/pratos', 400), ('/api/pratos?pedido_id=x', 400),
