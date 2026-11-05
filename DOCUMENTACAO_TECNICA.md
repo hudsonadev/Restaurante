@@ -210,7 +210,7 @@ xty = [sum(l[i] * yi for l, yi in zip(linhas, y)) for i in range(k)]
 beta = _resolver_gauss(xtx, xty)
 ```
 
-Cada entrada é uma soma: $(X^\top X)_{00} = n$, $(X^\top X)_{01} = \sum x_{i1}$, $(X^\top X)_{11} = \sum x_{i1}^2$ e assim por diante. Montar a matriz custa $O(n k^2)$ operações e resolver o sistema, $O(k^3)$.
+Cada entrada é uma soma: $`(X^\top X)_{00} = n`$, $`(X^\top X)_{01} = \sum x_{i1}`$, $`(X^\top X)_{11} = \sum x_{i1}^2`$ e assim por diante. Montar a matriz custa $`O(n k^2)`$ operações e resolver o sistema, $`O(k^3)`$.
 
 ### 4.4 Duas propriedades do resíduo
 
@@ -242,18 +242,24 @@ Os valores são zero até o limite do `float64`. É uma boa forma de checar se u
 
 Começa pela matriz aumentada $M = [A \mid \mathbf{b}]$, de tamanho $k \times (k+1)$:
 
-1. **Escala de referência:** $s = \max_{ij} |a_{ij}|$, usada na tolerância do pivô.
-2. **Para cada coluna** $c = 0, \dots, k-1$:
-   1. **Pivoteamento parcial:** escolher $p = \arg\max_{i \ge c} |m_{ic}|$ e trocar as linhas $c$ e $p$. Usar o maior pivô disponível evita dividir por números pequenos, que ampliam o erro de arredondamento.
-   2. **Teste de singularidade:** se $|m_{cc}| \le 10^{-12} \cdot s$, lançar `ValueError` (as variáveis não são independentes).
-   3. **Eliminação:** para cada linha $i > c$:
-      ```math
-      f_i = \frac{m_{ic}}{m_{cc}}, \qquad m_{ij} \leftarrow m_{ij} - f_i \, m_{cj} \quad (j = c, \dots, k)
-      ```
-3. **Substituição regressiva** (de baixo para cima), com a matriz já triangular superior:
-   ```math
-   \beta_i = \frac{1}{m_{ii}}\Big(m_{ik} - \sum_{j=i+1}^{k-1} m_{ij}\,\beta_j\Big), \qquad i = k-1, \dots, 0
-   ```
+1. **Escala de referência:** $`s = \max_{ij} \lvert a_{ij} \rvert`$, usada na tolerância do pivô.
+2. **Para cada coluna** $`c = 0, \dots, k-1`$:
+   1. **Pivoteamento parcial:** escolher $`p = \arg\max_{i \ge c} \lvert m_{ic} \rvert`$ e trocar as linhas $`c`$ e $`p`$. Usar o maior pivô disponível evita dividir por números pequenos, que ampliam o erro de arredondamento.
+   2. **Teste de singularidade:** se $`\lvert m_{cc} \rvert \le 10^{-12} \cdot s`$, lançar `ValueError` (as variáveis não são independentes).
+   3. **Eliminação:** para cada linha $`i > c`$, aplicar a fórmula (E) abaixo.
+3. **Substituição regressiva** (de baixo para cima), com a matriz já triangular superior: aplicar a fórmula (S) abaixo.
+
+**(E) Eliminação**, para cada linha $`i > c`$:
+
+```math
+f_i = \frac{m_{ic}}{m_{cc}}, \qquad m_{ij} \leftarrow m_{ij} - f_i \, m_{cj} \quad (j = c, \dots, k)
+```
+
+**(S) Substituição regressiva**, para $`i = k-1, \dots, 0`$:
+
+```math
+\beta_i = \frac{1}{m_{ii}}\Big(m_{ik} - \sum_{j=i+1}^{k-1} m_{ij}\,\beta_j\Big)
+```
 
 Trecho correspondente:
 
